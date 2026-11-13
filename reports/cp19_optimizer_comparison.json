@@ -1,0 +1,100 @@
+{
+  "experiment": "cp19_quadratic_optimizer_comparison",
+  "config_sha256": "da5f37dad64e2e05dd3da1c20ac422be409155d2c01458ce21ad8ddbcac298d5",
+  "problem_manifest": "docs/dataset_manifest_cp19_quadratic.md",
+  "initial_parameters": [
+    4.0,
+    -3.0
+  ],
+  "target_parameters": [
+    1.0,
+    2.0
+  ],
+  "steps_per_optimizer": 200,
+  "hardware": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 126 Stepping 5, GenuineIntel",
+    "logical_cpu_count": 4
+  },
+  "duration_seconds": 0.02978860000075656,
+  "optimizers": {
+    "sgd": {
+      "settings": {
+        "learning_rate": 0.05
+      },
+      "final_parameters": [
+        1.0001051579987466,
+        1.9998247366687558
+      ],
+      "loss_checkpoints": {
+        "0": 17.0,
+        "1": 15.342500000000001,
+        "10": 6.094260680945219,
+        "50": 0.10064899674567855,
+        "100": 0.0005958953262300969,
+        "200": 2.0887719989593497e-08
+      },
+      "final_loss": 2.0887719989593497e-08
+    },
+    "momentum": {
+      "settings": {
+        "learning_rate": 0.05,
+        "momentum": 0.9
+      },
+      "final_parameters": [
+        1.0000622652037674,
+        1.9998962246603877
+      ],
+      "loss_checkpoints": {
+        "0": 17.0,
+        "1": 15.342500000000001,
+        "10": 1.6434419584476587,
+        "50": 0.0005967768176627664,
+        "100": 0.00042238994840754516,
+        "200": 7.323138355917245e-09
+      },
+      "final_loss": 7.323138355917245e-09
+    },
+    "rmsprop": {
+      "settings": {
+        "learning_rate": 0.05,
+        "decay": 0.9,
+        "epsilon": 1e-08
+      },
+      "final_parameters": [
+        1.0,
+        2.0
+      ],
+      "loss_checkpoints": {
+        "0": 17.0,
+        "1": 15.760088945511015,
+        "10": 11.030068292446039,
+        "50": 2.7981861047662346,
+        "100": 0.09589248526679287,
+        "200": 0.0
+      },
+      "final_loss": 0.0
+    },
+    "adam": {
+      "settings": {
+        "learning_rate": 0.05,
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "epsilon": 1e-08
+      },
+      "final_parameters": [
+        1.000211262696271,
+        1.9221375764860655
+      ],
+      "loss_checkpoints": {
+        "0": 17.0,
+        "1": 16.602500000986666,
+        "10": 13.265573503963566,
+        "50": 3.965097461395682,
+        "100": 0.6313020717430897,
+        "200": 0.003031300813695065
+      },
+      "final_loss": 0.003031300813695065
+    }
+  }
+}

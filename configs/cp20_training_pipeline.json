@@ -1,0 +1,27 @@
+{
+  "name": "cp20_validation_and_resume_demo",
+  "seed": 2026,
+  "shuffle_seed": 42,
+  "layer_sizes": [1, 4, 3, 1],
+  "activations": ["tanh", "tanh", "identity"],
+  "optimizer": {
+    "name": "Adam",
+    "learning_rate": 0.01,
+    "beta1": 0.9,
+    "beta2": 0.999,
+    "epsilon": 1e-8
+  },
+  "dataset": {
+    "manifest": "docs/dataset_manifest_cp20_synthetic.md",
+    "train_sample_count": 21,
+    "validation_sample_count": 9,
+    "train_input_min": -1.0,
+    "train_input_max": 0.5,
+    "validation_input_min": 0.55,
+    "validation_input_max": 1.0,
+    "target_slope": 1.5,
+    "target_intercept": -0.25
+  },
+  "batch_size": 4,
+  "epochs": 120
+}

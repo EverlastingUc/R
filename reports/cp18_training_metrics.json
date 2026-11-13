@@ -1,0 +1,25 @@
+{
+  "experiment": "cp18_linear_regression",
+  "config_sha256": "5f9197f375fc090076e3e89ce463a5ebb20da1a1180103338429d0b4ba2cd970",
+  "seed": 18,
+  "dataset_manifest": "docs/dataset_manifest_cp18_linear.md",
+  "sample_count": 21,
+  "hardware": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 126 Stepping 5, GenuineIntel",
+    "logical_cpu_count": 4
+  },
+  "duration_seconds": 0.05752040000152192,
+  "learning_rate": 0.01,
+  "epochs": 500,
+  "initial_mse": 1.0812161550189634,
+  "loss_checkpoints": {
+    "0": 1.0812161550189634,
+    "1": 1.0589713003195447,
+    "10": 0.8503880170507866,
+    "100": 0.0002431969741141121,
+    "500": 6.283562373856533e-27
+  },
+  "final_mse": 6.283562373856533e-27,
+  "loss_reduction": 1.0812161550189634
+}

@@ -1,0 +1,16 @@
+{
+  "name": "cp18_linear_regression",
+  "seed": 18,
+  "layer_sizes": [1, 2, 2, 1],
+  "activations": ["identity", "identity", "identity"],
+  "dataset": {
+    "manifest": "docs/dataset_manifest_cp18_linear.md",
+    "sample_count": 21,
+    "input_min": -1.0,
+    "input_max": 1.0,
+    "target_slope": 2.0,
+    "target_intercept": 0.0
+  },
+  "learning_rate": 0.01,
+  "epochs": 500
+}

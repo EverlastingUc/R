@@ -1,0 +1,8 @@
+numpy==2.5.4; python_version >= "3.12"
+numpy==2.2.6; python_version < "3.12"
+matplotlib==3.11.2; python_version >= "3.11"
+matplotlib==3.10.9; python_version < "3.11"
+pytest==9.2.0
+black==26.10.1
+ruff==0.17.1
+setuptools==84.2.1

@@ -1,0 +1,18 @@
+{
+  "name": "cp19_quadratic_optimizer_comparison",
+  "problem_manifest": "docs/dataset_manifest_cp19_quadratic.md",
+  "initial_parameters": [4.0, -3.0],
+  "target_parameters": [1.0, 2.0],
+  "steps": 200,
+  "optimizers": {
+    "sgd": {"learning_rate": 0.05},
+    "momentum": {"learning_rate": 0.05, "momentum": 0.9},
+    "rmsprop": {"learning_rate": 0.05, "decay": 0.9, "epsilon": 1e-8},
+    "adam": {
+      "learning_rate": 0.05,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "epsilon": 1e-8
+    }
+  }
+}

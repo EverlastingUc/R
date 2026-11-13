@@ -1,0 +1,22 @@
+{
+  "config_sha256": "c726557847814d244af66d761e8270a82d62a633f285d6df69764f8fe218a273",
+  "seed": 2026,
+  "dataset": "synthetic XOR clusters and independently random labels",
+  "hardware": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 126 Stepping 5, GenuineIntel"
+  },
+  "duration_seconds": 2.0678592000003846,
+  "generalization": {
+    "train_accuracy": 1.0,
+    "test_accuracy": 1.0,
+    "initial_train_loss": 0.7991140982975975,
+    "final_train_loss": 0.0011670644850485107
+  },
+  "memorization": {
+    "train_accuracy": 1.0,
+    "test_accuracy": 0.5,
+    "initial_train_loss": 0.8865338640144653,
+    "final_train_loss": 0.01844846762681358
+  }
+}

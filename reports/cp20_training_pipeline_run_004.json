@@ -1,0 +1,37 @@
+{
+  "experiment": "cp20_validation_and_resume_demo",
+  "config_sha256": "86ddc2482b6c33d7e60a2425c539a919cde9fb72a8147a8d8702657c1eaa72d6",
+  "dataset_manifest": "docs/dataset_manifest_cp20_synthetic.md",
+  "seed": 2026,
+  "shuffle_seed": 42,
+  "hardware": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 126 Stepping 5, GenuineIntel",
+    "logical_cpu_count": 4
+  },
+  "duration_seconds": 0.5293684999996913,
+  "optimizer": {
+    "name": "Adam",
+    "learning_rate": 0.01,
+    "epsilon": 1e-08,
+    "beta1": 0.9,
+    "beta2": 0.999
+  },
+  "batch_size": 4,
+  "epochs": 120,
+  "train_sample_count": 21,
+  "validation_sample_count": 9,
+  "initial_train_mse": 0.6546357052635424,
+  "initial_validation_mse": 0.5779360289638131,
+  "first_epoch": {
+    "train_mse": 0.3759070256871742,
+    "validation_mse": 0.5624284691722896
+  },
+  "final_epoch": {
+    "train_mse": 0.0007134422514771807,
+    "validation_mse": 0.048381649659265696
+  },
+  "checkpoint_path": "reports\\checkpoints\\cp20\\cp20-86ddc2482b6c-run-004.npz",
+  "restored_epoch": 120,
+  "restored_predictions_match": true
+}

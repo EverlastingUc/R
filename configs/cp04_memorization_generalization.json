@@ -1,0 +1,17 @@
+{
+  "seed": 2026,
+  "learning_rate": 1.0,
+  "structured": {
+    "train_examples_per_corner": 32,
+    "test_examples_per_corner": 64,
+    "jitter": 0.1,
+    "hidden_size": 4,
+    "epochs": 8000
+  },
+  "memorization": {
+    "train_examples": 8,
+    "test_examples": 256,
+    "hidden_size": 32,
+    "epochs": 10000
+  }
+}
