@@ -41,9 +41,15 @@ class ByteTokenizer:
         return token_ids
 
     def decode(
-        self, token_ids: Iterable[int], *, skip_special_tokens: bool = True
+        self,
+        token_ids: Iterable[int],
+        *,
+        skip_special_tokens: bool = True,
+        errors: str = "strict",
     ) -> str:
         """Decode byte IDs; reject invalid IDs and malformed UTF-8 sequences."""
+        if errors not in ("strict", "replace", "ignore"):
+            raise ValueError("errors must be strict, replace, or ignore")
         byte_values = bytearray()
         for token_id in token_ids:
             if not isinstance(token_id, (int, np.integer)):
@@ -55,7 +61,7 @@ class ByteTokenizer:
                 continue
             else:
                 raise ValueError(f"unknown or unexpected special token ID: {value}")
-        return bytes(byte_values).decode("utf-8", errors="strict")
+        return bytes(byte_values).decode("utf-8", errors=errors)
 
     def encode_batch(
         self,
