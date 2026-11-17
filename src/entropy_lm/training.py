@@ -209,8 +209,6 @@ def train_language_model(
     Steps counts optimizer updates; gradient accumulation increases effective
     batch size without requiring a larger device-memory batch.
     """
-    if not isinstance(text, str) or not text.strip():
-        raise ValueError("training text must be a non-empty string")
     if not 0.0 < validation_fraction < 0.5:
         raise ValueError("validation_fraction must be between 0 and 0.5")
     if steps < 1 or batch_size < 1 or eval_interval < 1 or eval_batches < 1:
