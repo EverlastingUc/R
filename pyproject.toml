@@ -16,7 +16,7 @@ gluons = "proton_i.gluons.__main__:main"
 valence = "proton_i.valence.__main__:main"
 valence-api = "proton_i.valence.api:main"
 entropy-train = "entropy_lm.training:main"
-entropy-generate = "entropy_lm.inference:main"
+entropy-generate = "entropy_lm.inference:main"\nentropy-prepare-corpus = "entropy_lm.corpus:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
