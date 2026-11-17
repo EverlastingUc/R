@@ -96,16 +96,18 @@ def _save_checkpoint(
     tokenizer: ByteTokenizer | BPETokenizer,
     history: list[dict[str, float | int]],
     training: dict[str, Any],
+    rng_state: dict[str, Any],
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint: dict[str, Any] = {
-        "format_version": 1,
+        "format_version": 2,
         "architecture": asdict(architecture),
         "model_state": model.state_dict(),
         "optimizer_state": optimizer.state_dict(),
         "scheduler_state": scheduler.state_dict(),
         "training": training | {"history": history},
         "tokenizer": _tokenizer_metadata(tokenizer),
+        "rng_state": rng_state,
     }
     temporary_path = path.with_name(path.name + ".tmp")
     torch.save(checkpoint, temporary_path)
@@ -202,6 +204,8 @@ def train_language_model(
     minimum_learning_rate_ratio: float = 0.1,
     gradient_accumulation_steps: int = 1,
     early_stopping_patience: int | None = None,
+    resume_from: str | Path | None = None,
+    max_steps_per_run: int | None = None,
 ) -> list[dict[str, float | int]]:
     """Train a causal LM with warmup, cosine decay and best-validation saving.
 
@@ -224,6 +228,10 @@ def train_language_model(
         raise ValueError("minimum_learning_rate_ratio must be finite and in [0, 1]")
     if early_stopping_patience is not None and early_stopping_patience < 1:
         raise ValueError("early_stopping_patience must be positive when supplied")
+    if max_steps_per_run is not None and max_steps_per_run < 1:
+        raise ValueError("max_steps_per_run must be positive when supplied")
+    if resume_from is not None and checkpoint_path is None:
+        checkpoint_path = resume_from
     if not math.isfinite(learning_rate) or learning_rate <= 0.0:
         raise ValueError("learning_rate must be positive and finite")
     if not isinstance(seed, int):
@@ -280,13 +288,32 @@ def train_language_model(
     train_generator = torch.Generator(device="cpu").manual_seed(seed + 1)
     training_eval_generator = torch.Generator(device="cpu").manual_seed(seed + 2)
     validation_generator = torch.Generator(device="cpu").manual_seed(seed + 3)
+    train_generator = torch.Generator(device="cpu").manual_seed(seed + 1)
+    training_eval_generator = torch.Generator(device="cpu").manual_seed(seed + 2)
+    validation_generator = torch.Generator(device="cpu").manual_seed(seed + 3)
     history: list[dict[str, float | int]] = []
     best_validation_loss = math.inf
     evaluations_without_improvement = 0
     completed_steps = 0
     if not (isinstance(text, Path) and text.is_dir()):
         corpus_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
-    checkpoint_training = {
+
+    run_config = {
+        "steps": steps,
+        "batch_size": batch_size,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+        "learning_rate": learning_rate,
+        "warmup_steps": warmup_steps,
+        "minimum_learning_rate_ratio": minimum_learning_rate_ratio,
+        "eval_interval": eval_interval,
+        "eval_batches": eval_batches,
+        "validation_fraction": validation_fraction,
+        "seed": seed,
+        "early_stopping_patience": early_stopping_patience,
+        "corpus_sha256": corpus_sha256,
+    }
+    checkpoint_training: dict[str, Any] = {
+        "run_config": run_config,
         "steps": steps,
         "completed_steps": 0,
         "batch_size": batch_size,
@@ -299,9 +326,87 @@ def train_language_model(
         "seed": seed,
         "corpus_sha256": corpus_sha256,
         "best_validation_loss": None,
+        "evaluations_without_improvement": 0,
     }
 
-    for step in range(1, steps + 1):
+    if resume_from is not None:
+        resume_path = Path(resume_from)
+        if not resume_path.is_file():
+            raise FileNotFoundError("resume checkpoint does not exist")
+        saved = torch.load(resume_path, map_location="cpu", weights_only=True)
+        if not isinstance(saved, dict) or saved.get("format_version") != 2:
+            raise ValueError("resume requires a version 2 training checkpoint")
+        if saved.get("architecture") != asdict(architecture):
+            raise ValueError("resume checkpoint architecture does not match")
+        if saved.get("tokenizer") != _tokenizer_metadata(tokenizer):
+            raise ValueError("resume checkpoint tokenizer does not match")
+        saved_training = saved.get("training")
+        if not isinstance(saved_training, dict):
+            raise ValueError("resume checkpoint training metadata is malformed")
+        if saved_training.get("run_config") != run_config:
+            raise ValueError("resume checkpoint training configuration does not match")
+        if saved_training.get("corpus_sha256") != corpus_sha256:
+            raise ValueError("resume checkpoint corpus does not match")
+        required_fields = ("model_state", "optimizer_state", "scheduler_state")
+        if any(not isinstance(saved.get(key), dict) for key in required_fields):
+            raise ValueError("resume checkpoint is missing training state")
+        rng_state = saved.get("rng_state")
+        if not isinstance(rng_state, dict):
+            raise ValueError("resume checkpoint is missing RNG state")
+        try:
+            model.load_state_dict(saved["model_state"], strict=True)
+            optimizer.load_state_dict(saved["optimizer_state"])
+            scheduler.load_state_dict(saved["scheduler_state"])
+            history = saved_training["history"]
+            completed_steps = int(saved_training["completed_steps"])
+            best_value = saved_training.get("best_validation_loss")
+            best_validation_loss = (
+                math.inf if best_value is None else float(best_value)
+            )
+            evaluations_without_improvement = int(
+                saved_training.get("evaluations_without_improvement", 0)
+            )
+            if not isinstance(history, list) or not 0 <= completed_steps <= steps:
+                raise ValueError("resume checkpoint progress is invalid")
+            train_generator.set_state(rng_state["train_generator"])
+            training_eval_generator.set_state(rng_state["training_eval_generator"])
+            validation_generator.set_state(rng_state["validation_generator"])
+            torch.set_rng_state(rng_state["torch_cpu"])
+            cuda_states = rng_state.get("torch_cuda", [])
+            if cuda_states and target_device.type == "cuda":
+                if len(cuda_states) != torch.cuda.device_count():
+                    raise ValueError("resume checkpoint CUDA device count does not match")
+                torch.cuda.set_rng_state_all(cuda_states)
+        except (KeyError, TypeError, RuntimeError, OverflowError) as error:
+            raise ValueError("resume checkpoint training state is invalid") from error
+        checkpoint_training.update(saved_training)
+        checkpoint_training["completed_steps"] = completed_steps
+        checkpoint_training["best_validation_loss"] = (
+            None if math.isinf(best_validation_loss) else best_validation_loss
+        )
+        checkpoint_training["evaluations_without_improvement"] = (
+            evaluations_without_improvement
+        )
+
+    start_step = completed_steps
+    end_step = (
+        steps
+        if max_steps_per_run is None
+        else min(steps, completed_steps + max_steps_per_run)
+    )
+
+    def capture_rng_state() -> dict[str, Any]:
+        return {
+            "torch_cpu": torch.get_rng_state(),
+            "torch_cuda": torch.cuda.get_rng_state_all()
+            if torch.cuda.is_available()
+            else [],
+            "train_generator": train_generator.get_state(),
+            "training_eval_generator": training_eval_generator.get_state(),
+            "validation_generator": validation_generator.get_state(),
+        }
+
+    for step in range(start_step + 1, end_step + 1):
         model.train()
         optimizer.zero_grad(set_to_none=True)
         accumulated_loss = 0.0
@@ -357,31 +462,40 @@ def train_language_model(
             if validation_loss < best_validation_loss:
                 best_validation_loss = validation_loss
                 evaluations_without_improvement = 0
-                checkpoint_training["completed_steps"] = completed_steps
-                checkpoint_training["best_validation_loss"] = best_validation_loss
-                if checkpoint_path is not None:
-                    _save_checkpoint(
-                        Path(checkpoint_path),
-                        architecture=architecture,
-                        model=model,
-                        optimizer=optimizer,
-                        scheduler=scheduler,
-                        tokenizer=tokenizer,
-                        history=history,
-                        training=checkpoint_training,
-                    )
             else:
                 evaluations_without_improvement += 1
-                if (
-                    early_stopping_patience is not None
-                    and evaluations_without_improvement >= early_stopping_patience
-                ):
-                    break
+            checkpoint_training["completed_steps"] = completed_steps
+            checkpoint_training["best_validation_loss"] = (
+                None if math.isinf(best_validation_loss) else best_validation_loss
+            )
+            checkpoint_training["evaluations_without_improvement"] = (
+                evaluations_without_improvement
+            )
+            if checkpoint_path is not None:
+                _save_checkpoint(
+                    Path(checkpoint_path),
+                    architecture=architecture,
+                    model=model,
+                    optimizer=optimizer,
+                    scheduler=scheduler,
+                    tokenizer=tokenizer,
+                    history=history,
+                    training=checkpoint_training,
+                    rng_state=capture_rng_state(),
+                )
+            if (
+                early_stopping_patience is not None
+                and evaluations_without_improvement >= early_stopping_patience
+            ):
+                break
 
-    if checkpoint_path is not None and not Path(checkpoint_path).exists():
+    if checkpoint_path is not None:
         checkpoint_training["completed_steps"] = completed_steps
         checkpoint_training["best_validation_loss"] = (
             None if math.isinf(best_validation_loss) else best_validation_loss
+        )
+        checkpoint_training["evaluations_without_improvement"] = (
+            evaluations_without_improvement
         )
         _save_checkpoint(
             Path(checkpoint_path),
@@ -392,6 +506,7 @@ def train_language_model(
             tokenizer=tokenizer,
             history=history,
             training=checkpoint_training,
+            rng_state=capture_rng_state(),
         )
     return history
 
@@ -419,6 +534,16 @@ def main() -> None:
     parser.add_argument("--bpe-vocab-size", type=int, default=1000)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="resume from the checkpoint path (keep the original training settings)",
+    )
+    parser.add_argument(
+        "--max-steps-this-run",
+        type=int,
+        help="pause after this many additional optimizer steps and save progress",
+    )
     args = parser.parse_args()
 
     if args.corpus.is_dir():
@@ -459,6 +584,8 @@ def main() -> None:
         ),
         minimum_learning_rate_ratio=args.minimum_learning_rate_ratio,
         early_stopping_patience=args.early_stopping_patience,
+        resume_from=args.checkpoint if args.resume else None,
+        max_steps_per_run=args.max_steps_this_run,
     )
     print(json.dumps(history, indent=2))
 
