@@ -36,7 +36,7 @@ def evaluate_chat_test_set(
     if not isinstance(checkpoint, dict) or not isinstance(
         checkpoint.get("training"), dict
     ):
-        raise ValueError("checkpoint does not contain SFT training metadata")
+        raise TypeError("checkpoint does not contain SFT training metadata")
     training = checkpoint["training"]
     if (
         training.get("task") != "assistant-response-supervised-finetuning"
