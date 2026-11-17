@@ -92,9 +92,18 @@ class CausalLanguageModel(nn.Module):
         nn.init.zeros_(self.final_norm.bias)
 
     def forward(
-        self, input_ids: Tensor, targets: Tensor | None = None
+        self,
+        input_ids: Tensor,
+        targets: Tensor | None = None,
+        *,
+        ignore_index: int = -100,
     ) -> tuple[Tensor, Tensor | None]:
-        """Return vocabulary logits and optional next-token cross-entropy."""
+        """Return vocabulary logits and optional next-token cross-entropy.
+
+        Target positions equal to ignore_index are excluded from the loss. This
+        supports assistant-only supervised fine-tuning while retaining the
+        existing full-sequence language-model objective by default.
+        """
         if input_ids.ndim != 2:
             raise ValueError("input_ids must have shape (batch, sequence)")
         batch_size, sequence_length = input_ids.shape
@@ -128,10 +137,18 @@ class CausalLanguageModel(nn.Module):
                 raise ValueError("targets must have the same shape as input_ids")
             if targets.dtype != torch.long:
                 raise TypeError("targets must use torch.long token IDs")
-            if torch.any(targets < 0) or torch.any(targets >= self.config.vocab_size):
+            valid_targets = targets != ignore_index
+            if not torch.any(valid_targets):
+                raise ValueError("targets contain no supervised tokens")
+            if torch.any(
+                (targets[valid_targets] < 0)
+                | (targets[valid_targets] >= self.config.vocab_size)
+            ):
                 raise ValueError("targets contain an out-of-vocabulary token")
             loss = F.cross_entropy(
-                logits.reshape(-1, self.config.vocab_size), targets.reshape(-1)
+                logits.reshape(-1, self.config.vocab_size),
+                targets.reshape(-1),
+                ignore_index=ignore_index,
             )
         return logits, loss
 
