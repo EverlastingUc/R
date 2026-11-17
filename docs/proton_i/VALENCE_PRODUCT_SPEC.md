@@ -2,7 +2,7 @@
 
 **Product role:** Proton-I's user-facing general-purpose AI assistant  
 **Product inspiration:** ChatGPT-style conversation and DesignArena-style creative workspace  
-**Status:** Owner-approved direction; initial local-chat vertical slice in progress
+**Status:** Owner-approved direction; local chat and loopback API prototype implemented, with broader assistant capabilities planned
 
 ## 1. Product definition
 
@@ -84,14 +84,21 @@ The model is a local runtime dependency; its weights are not committed to Git. T
 
 ## 6. Current implementation boundary
 
-The initial slice supports:
-- One local Ollama model.
-- Plain-text, multi-turn chat.
-- In-memory context with a fixed upper bound.
-- Explicit reset and graceful provider error messages.
-- Mocked HTTP and orchestration tests that do not require a running model or network.
+The current prototype supports:
+- One local Ollama model through the provider-neutral `ChatBackend` contract.
+- Plain-text, multi-turn chat through both the CLI and a local HTTP API.
+- Bounded in-memory conversation history in the CLI.
+- A maximum of 64 in-memory API sessions, each identified by a random session token.
+- Explicit conversation reset and graceful provider/API error responses.
+- `GET /health` and `GET /v1/capabilities`.
+- `POST /v1/chat` and `POST /v1/reset`, using JSON request/response bodies.
+- HTTP request bodies capped at 16 KB and chat messages capped at 12,000 characters.
+- Server binding restricted to IPv4 loopback (`127.0.0.1`); browser requests with an Origin header must be same-origin loopback requests.
+- API tests using an actual ephemeral loopback HTTP server and a deterministic fake model backend. These tests need no running Ollama instance or internet connection.
 
 It does not yet support:
+- Authentication, user accounts, durable sessions, session expiry, or database persistence. API sessions disappear when the server process exits.
+- Public-network hosting, HTTPS termination, cross-origin browser access, or CORS preflight handling. Keep the developer-preview API on loopback.
 - Web search orchestration (Gluons remains separate until a safe tool adapter is added).
 - Mathematics execution (math subsystem implementation is a later Valence milestone).
 - Persistent accounts, cloud sync, memory, uploads, or file parsing.
@@ -101,8 +108,8 @@ It does not yet support:
 
 ## 7. Delivery sequence
 
-1. **VQ-A01 — Local conversational core:** backend contract, Ollama adapter, bounded conversation engine, CLI, tests.
-2. **VQ-A02 — Application API:** typed request/response schema, local HTTP service, health/readiness, request limits.
+1. **VQ-A01 — Local conversational core:** *implemented* backend contract, Ollama adapter, bounded conversation engine, CLI, tests.
+2. **VQ-A02 — Application API:** *implemented* typed JSON routes, loopback-only HTTP service, health/capabilities, session handling and request limits.
 3. **VQ-A03 — Tool contract:** typed capability registry, policy checks, structured tool results; no arbitrary code execution.
 4. **VQ-A04 — Gluons integration:** retrieval tool returning source-attributed snippets.
 5. **VQ-A05 — Mathematical subsystem:** safe expression parsing, exact arithmetic, then the full mathematics roadmap in `VALENCE_MATH_SPEC.md`.

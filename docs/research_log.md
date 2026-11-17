@@ -322,14 +322,23 @@
   process-local memory and disappears when the CLI exits.
 - **Next:** VQ-A02, expose the same engine through a loopback-only JSON API.
 
-## 2026-11-17 — Valence VQ-A02: loopback HTTP API implementation
+## 2026-11-17 — Valence VQ-A02: loopback HTTP API verified
 
 - **Done:** Added a threaded local API with `/health`, `/v1/capabilities`,
   `/v1/chat` and `/v1/reset`. Requests are JSON-only and size bounded;
-  browser origins must match the loopback API origin; conversations are
-  isolated by random session IDs and capped in memory.
+  browser Origins must match the loopback API origin; conversations are
+  isolated by random session IDs and capped at 64 in memory.
 - **Security boundary:** Server binds only to IPv4 loopback, limits JSON bodies
-  to 16 KB, limits active sessions, avoids logging prompts, and does not
-  provide public-network access, user accounts, or persistent storage.
-- **Evidence:** Automated loopback HTTP tests added. Final CI result pending.
-- **Next:** Run formatting, lint and full tests; then prepare the API report.
+  to 16 KB and chat messages to 12,000 characters, avoids logging prompts,
+  rejects non-local browser origins, and does not provide public-network access,
+  user accounts, or persistent storage.
+- **Evidence:** GitHub Actions [run 44120543232](https://github.com/EverlastingUc/R/actions/runs/44120543232) passed.
+  Black: 56 files unchanged; Ruff: all checks passed; pytest: 188 passed in
+  9.23 seconds. API session-isolation and error-redaction regression tests pass.
+- **Limitations:** The API's HTTP layer was tested against an actual ephemeral
+  loopback server, but model generation remains mocked in CI. A real Ollama
+  model still needs to be installed and run on the owner's machine. Sessions
+  are in-memory only and disappear when the API process exits.
+- **Next:** VQ-A03, define a typed capability/tool registry with explicit
+  permission checks and structured results; keep tool execution disabled until
+  each tool has a reviewed policy and tests.
