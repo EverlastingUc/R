@@ -31,6 +31,7 @@ from proton_i.valence.mathematics import MathematicsEngine, MathematicsError
         ("ratio(2, 3)", Fraction(2, 3)),
         ("percent(15)", Fraction(3, 20)),
         ("percent(15, 200)", Fraction(30)),
+        ("percent(1, 0)", Fraction(0)),
     ],
 )
 def test_number_operations_match_exact_results(
@@ -47,7 +48,7 @@ def test_irrational_square_root_is_explicitly_approximate() -> None:
 
     assert isinstance(result.value, Decimal)
     assert result.exact_result is None
-    assert result.decimal_approximation.startswith("1.41421356237309")
+    assert float(result.decimal_approximation) == pytest.approx(2**0.5, rel=1e-14)
     assert "≈" in result.answer
 
 
@@ -84,7 +85,6 @@ def test_square_root_composes_with_other_exact_or_approximate_values(
         "gcd(2.5, 5)",
         "lcm(2, 3.5)",
         "ratio(1, 0)",
-        "percent(1, 0)",
         "unknown(2)",
         "pow(2, 3)",
     ],
@@ -156,3 +156,45 @@ def test_function_parser_never_accepts_python_execution_syntax(
 ) -> None:
     with pytest.raises(MathematicsError):
         MathematicsEngine().evaluate(expression)
+
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "sqrt()",
+        "abs(1, 2)",
+        "gcd(2)",
+        "lcm(1, 2, 3)",
+        "percent(1, 2, 3)",
+        "ratio(1)",
+    ],
+)
+def test_whitelisted_functions_enforce_argument_counts(expression: str) -> None:
+    with pytest.raises(MathematicsError, match="expects"):
+        MathematicsEngine().evaluate(expression)
+
+
+def test_modulo_rejects_zero_divisor_and_fractional_operands() -> None:
+    engine = MathematicsEngine()
+    with pytest.raises(MathematicsError, match="Modulo by zero"):
+        engine.evaluate("12 % 0")
+    with pytest.raises(MathematicsError, match="exact integer"):
+        engine.evaluate("3/2 % 1")
+
+
+def test_square_root_reports_negative_real_domain_error() -> None:
+    with pytest.raises(MathematicsError, match="negative real"):
+        MathematicsEngine().evaluate("sqrt(-2)")
+
+
+def test_power_prompts_are_recognized_without_capturing_plain_numbers() -> None:
+    engine = MathematicsEngine()
+    assert engine.solve_prompt("What is 2**10?").exact_result == "1024"
+    assert engine.solve_prompt("What is 2026?") is None
+
+
+def test_irrational_square_root_remains_approximate_after_arithmetic() -> None:
+    result = MathematicsEngine().evaluate("sqrt(2) * sqrt(2)")
+    assert result.exact_result is None
+    assert float(result.decimal_approximation) == pytest.approx(2.0, rel=1e-14)

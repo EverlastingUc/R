@@ -39,7 +39,9 @@ def create_mathematics_tool(
         name="calculate_expression",
         description=(
             "Evaluate a basic arithmetic expression exactly using fractions. "
-            "Supports +, -, *, /, unary signs, decimal literals, and parentheses."
+            "Supports +, -, *, /, %, bounded integer powers, unary signs, exact rational
+            decimals, parentheses, and the abs, sqrt, gcd, lcm, ratio, and percent
+            function whitelist."
         ),
         parameters=(
             ToolParameter(
