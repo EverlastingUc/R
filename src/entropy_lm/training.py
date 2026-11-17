@@ -143,9 +143,7 @@ def _load_prepared_dataset(directory: Path):
     def load_split(name: str) -> Tensor:
         split_path = directory / (name + ".jsonl")
         if not split_path.is_file():
-            raise FileNotFoundError(
-                "prepared corpus is missing " + split_path.name
-            )
+            raise FileNotFoundError("prepared corpus is missing " + split_path.name)
         values: list[int] = []
         for line_number, line in enumerate(
             split_path.read_text(encoding="utf-8").splitlines(), 1
