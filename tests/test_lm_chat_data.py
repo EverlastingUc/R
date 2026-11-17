@@ -103,7 +103,12 @@ def test_chat_preparation_rejects_conversation_without_assistant(tmp_path):
     source = tmp_path / "invalid.jsonl"
     _write_conversations(
         source,
-        [[{"role": "user", "content": "No response is present."}]],
+        [
+            [
+                {"role": "system", "content": "Answer questions."},
+                {"role": "user", "content": "No response is present."},
+            ]
+        ],
     )
-    with pytest.raises(ValueError, match="at least two entries"):
+    with pytest.raises(ValueError, match="needs user and assistant"):
         prepare_chat_dataset(source, tmp_path / "prepared", tokenizer_type="byte")
