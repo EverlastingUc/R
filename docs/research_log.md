@@ -390,8 +390,12 @@
   Only application-registered handlers can run. Unknown, malformed, disabled,
   disallowed, over-budget, or approval-gated tools do not execute. Web snippets
   retain source URLs and are marked untrusted_web_content.
-- **Evidence:** GitHub Actions run 44126687355 passed. Black check, Ruff check,
-  and the full pytest suite all passed: 244 passed in 9.77 seconds.
+- **Evidence:** GitHub Actions [run 44127457691](https://github.com/EverlastingUc/R/actions/runs/44127457691) passed on
+  the recorded branch head. Black: 62 files unchanged; Ruff: all checks passed;
+  pytest: 246 passed in 17.65 seconds. The suite includes a loopback API
+  end-to-end test in which a fake model requests Gluons search and receives the
+  source-attributed, untrusted tool result, plus a deny-policy test proving
+  search does not run when the flag/policy is absent.
 - **Limitations:** CI uses fake backends and an injected search provider. A real
   local Ollama model has not been installed or exercised in this environment.
   The local assistant's quality remains bounded by the separately installed

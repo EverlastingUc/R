@@ -107,7 +107,8 @@ $body = @{ message = "Explain a neural network in simple terms." } | ConvertTo-J
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/v1/chat -ContentType "application/json" -Body $body
 ```
 
-See [the VQ-A02 implementation and test report](docs/proton_i/VQ-A02.md).
+See the [VQ-A02 API report](docs/proton_i/VQ-A02.md) and
+[VQ-A05 tool-orchestration report](docs/proton_i/VQ-A05.md).
 
 Do not expose this developer-preview server to the public internet. It has no
 account authentication or durable session storage.

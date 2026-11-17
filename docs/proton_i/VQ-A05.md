@@ -1,74 +1,80 @@
-# Valence VQ-A05 — Model tool-call orchestration
+# VQ-A05 — Model tool-call orchestration
 
 ## Objective
 
-Allow the local model to request approved application tools through a bounded,
-verifiable protocol. Model-provided names and arguments are untrusted data; they
-must never become executable source code.
+Connect the local language model's structured function/tool-call protocol to Valence's application-owned CapabilityRegistry and ToolExecutor. A model may request a tool, but it cannot choose arbitrary code or bypass application permissions.
 
-## What was implemented
+## What was built
 
-- Added Ollama function-call parsing to the local model backend.
-- Added structured assistant tool-call and tool-result message serialization.
-- Connected model turns to the existing typed capability registry and executor.
-- Enforced registry membership, application policy, parameter validation,
-  approval gates, per-turn tool-call budgets, tool-round limits, and message
-  size limits.
-- Added a final tool-free model turn when the tool budget is exhausted.
-- Connected the Gluons adapter to the user-facing CLI and API behind an
-  explicit --enable-web-search flag. Normal startup leaves tools disabled.
-- Added an end-to-end regression test for model-requested Gluons retrieval and
-  source-attributed tool-result feedback.
+- The Ollama backend supports non-streaming `complete_turn()` responses containing assistant text and/or structured `tool_calls`.
+- Tool requests are parsed as untrusted data with bounded call counts and argument payload sizes.
+- Provider tool schemas are constructed only from registry definitions allowed by the current ExecutionPolicy. Application-only metadata such as `requires_approval` is stripped from the provider schema.
+- The engine sends assistant tool-call messages to Ollama, executes the registered handler through ToolExecutor, appends a structured `role: tool` result, and asks the model for its next response.
+- Tool execution is bounded by maximum tool rounds and total calls. After the budget is consumed, Valence asks for a final tool-free response.
+- Unknown, disabled, denied, malformed, approval-gated, or over-budget calls return structured failures and do not run a handler.
+- CLI and local API accept `--enable-web-search`. Only with this explicit flag do they register Gluons and allow the `search_web` tool. Default startup has no external tool permissions.
+- The API capability route distinguishes `not_integrated`, `disabled_by_policy`, `model_tool_calling_not_supported`, and `enabled` for web search.
 
-## How to run
+## How to use
 
-Install Ollama and pull the starter model once:
+Pull the local model once:
 
 ```powershell
 ollama pull qwen2.5:1.5b-instruct
 ```
 
-Start Valence with web retrieval explicitly enabled:
+Start normal local chat with no external search:
+
+```powershell
+valence
+```
+
+Enable Gluons search explicitly for that session:
 
 ```powershell
 valence --enable-web-search
 ```
 
-Or start the local API with web retrieval enabled:
+For the loopback API, normal mode is:
+
+```powershell
+valence-api --port 8765
+```
+
+Enable search for API sessions explicitly:
 
 ```powershell
 valence-api --port 8765 --enable-web-search
 ```
 
-Without --enable-web-search, the Gluons tool is not registered and the
-execution policy permits no tools.
+The API remains bound to `127.0.0.1`. This is a developer-preview local service, not a public internet endpoint.
+
+## Safety boundary
+
+- Only application-registered Python handlers can execute.
+- Tool names and arguments returned by the model are untrusted.
+- Tool schemas are visible only when allowed by the application policy.
+- Search is opt-in; default policy is deny-all.
+- Gluons results remain marked `untrusted_web_content`; source URLs are retained, and retrieved text is not treated as instructions.
+- Model-generated Python, shell, JavaScript, or other source code is never evaluated or executed by this loop.
+- Tool rounds, call counts, message size, arguments and tool-result output are bounded.
 
 ## Evidence
 
-GitHub Actions run
-[44126687355](https://github.com/EverlastingUc/R/actions/runs/44126687355)
-passed all quality gates:
-- Black formatting check: passed.
-- Ruff lint check: passed.
-- Full test suite: 244 passed in 9.77 seconds.
+GitHub Actions: [run 44127457691](https://github.com/EverlastingUc/R/actions/runs/44127457691).
 
-The tests use mocked model responses and an injected fake search provider, so
-they do not require internet access or a running Ollama server.
+- Black: 62 files unchanged.
+- Ruff: all checks passed.
+- Pytest: 246 passed in 17.65 seconds.
+- Tests include Ollama request/response parsing, malformed tool-call rejection, tool-role message serialization, end-to-end API-to-Gluons search with source attribution, deny-policy behavior, approval gates, tool budgets, and redacted failures.
 
 ## Limitations
 
-- Real local inference has not yet been tested against an installed Ollama
-  model in this environment.
-- The implementation supports the current Ollama tool-call contract only.
-- Tool access is limited to application-registered handlers. This is not a
-  public plugin marketplace or arbitrary code-execution facility.
-- Gluons retrieves bounded snippets and URLs; it does not read whole pages.
-- Persistent memory, files, creation modes, and mathematical execution are
-  separate future milestones.
+- CI uses fake model and search providers. A real local Ollama model has not yet been installed or exercised in this environment; the quality and correctness of model-selected tool calls must be assessed on the owner's local runtime.
+- Only the Ollama function-call protocol is implemented.
+- Search is snippet-based retrieval, not full-page browsing.
+- No public plugin marketplace, cloud provider router, persistent memory, math solver, file understanding, image/video generation, coding sandbox, or DesignArena-style creation pipeline is completed yet.
 
 ## Next step
 
-VQ-A06 — Mathematics subsystem: begin with a safe tokenizer/parser and exact
-arithmetic, then expand in tested increments through algebra, geometry,
-trigonometry, calculus, linear algebra, probability, statistics, and advanced
-mathematical domains.
+VQ-A06 — implement Valence's mathematics subsystem, starting with a safe tokenizer/parser and exact arithmetic. Do not use Python `eval()` or `exec()`. Expand in tested modules toward algebra, geometry, trigonometry, calculus, linear algebra, probability/statistics, numerical methods, and the advanced domains in `VALENCE_MATH_SPEC.md`.
