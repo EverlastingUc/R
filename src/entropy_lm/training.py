@@ -205,7 +205,8 @@ def train_language_model(
         path = Path(checkpoint_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         tokenizer_metadata: dict[str, Any] = {
-            "type": "utf8-byte", "vocab_size": tokenizer.vocab_size,
+            "type": "utf8-byte",
+            "vocab_size": tokenizer.vocab_size,
         }
         if isinstance(tokenizer, BPETokenizer):
             tokenizer_metadata = {
