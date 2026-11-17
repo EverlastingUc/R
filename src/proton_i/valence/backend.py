@@ -273,7 +273,7 @@ class OllamaChatBackend:
         names: set[str] = set()
         for schema in tools:
             if not isinstance(schema, Mapping):
-                raise ValueError("tool schemas must be JSON objects")
+                raise TypeError("tool schemas must be JSON objects")
             name = schema.get("name")
             description = schema.get("description")
             parameters = schema.get("parameters")
