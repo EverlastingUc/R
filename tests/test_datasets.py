@@ -51,15 +51,29 @@ def bike_archive(day_count: int = 20, rows_per_day: int = 2) -> bytes:
         day = (date(2011, 1, 1) + timedelta(days=day_index)).isoformat()
         for hour in range(rows_per_day):
             values = {name: 0 for name in BIKE_FEATURES}
-            values.update({
-                "season": 1, "yr": 0, "mnth": 1, "hr": hour,
-                "weekday": day_index % 7, "temp": day_index / day_count,
-                "atemp": 0.25, "hum": 0.5, "windspeed": 0.1,
-            })
-            writer.writerow({
-                "instant": instant, "dteday": day, **values,
-                "casual": 1, "registered": 2, "cnt": 3,
-            })
+            values.update(
+                {
+                    "season": 1,
+                    "yr": 0,
+                    "mnth": 1,
+                    "hr": hour,
+                    "weekday": day_index % 7,
+                    "temp": day_index / day_count,
+                    "atemp": 0.25,
+                    "hum": 0.5,
+                    "windspeed": 0.1,
+                }
+            )
+            writer.writerow(
+                {
+                    "instant": instant,
+                    "dteday": day,
+                    **values,
+                    "casual": 1,
+                    "registered": 2,
+                    "cnt": 3,
+                }
+            )
             instant += 1
     return make_zip("hour.csv", buffer.getvalue())
 
@@ -140,7 +154,9 @@ def test_bike_rejects_target_identity_violation_and_unsorted_dates() -> None:
 def test_constant_training_features_remain_finite() -> None:
     prepared = prepare_bike_hourly(bike_archive())
     for values in (
-        prepared.train_inputs, prepared.validation_inputs, prepared.test_inputs
+        prepared.train_inputs,
+        prepared.validation_inputs,
+        prepared.test_inputs,
     ):
         assert np.isfinite(values).all()
     assert np.all(prepared.scaler_scale > 0)
@@ -164,12 +180,15 @@ def test_persistence_records_provenance_and_refuses_overwrite(tmp_path) -> None:
         save_prepared_dataset(prepared, archive_path, metadata)
 
 
-def test_download_cache_requires_exact_uci_host_and_preserves_existing(tmp_path) -> None:
+def test_download_cache_requires_exact_uci_host_and_preserves_existing(
+    tmp_path,
+) -> None:
     cached = tmp_path / "archive.zip"
     cached.write_bytes(b"original")
-    assert download_to_cache(
-        "https://archive.ics.uci.edu/static/example.zip", cached
-    ) == cached
+    assert (
+        download_to_cache("https://archive.ics.uci.edu/static/example.zip", cached)
+        == cached
+    )
     assert cached.read_bytes() == b"original"
     for url in (
         "http://archive.ics.uci.edu/example.zip",

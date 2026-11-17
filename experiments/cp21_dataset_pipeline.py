@@ -55,7 +55,9 @@ def main() -> None:
         settings = specs[name]
         raw_path = download_to_cache(source_url, ROOT / settings["raw_path"])
         raw_bytes = raw_path.read_bytes()
-        dataset = prepare(raw_bytes, **({"seed": config["seed"]} if name == "iris" else {}), **split)
+        dataset = prepare(
+            raw_bytes, **({"seed": config["seed"]} if name == "iris" else {}), **split
+        )
         provenance = {
             **citation,
             "source_url": source_url,
@@ -66,16 +68,18 @@ def main() -> None:
         archive, metadata = save_prepared_dataset(
             dataset, ROOT / settings["processed_path"], provenance
         )
-        audit.append({
-            "name": dataset.name,
-            "task": dataset.task,
-            "train_rows": len(dataset.train_inputs),
-            "validation_rows": len(dataset.validation_inputs),
-            "test_rows": len(dataset.test_inputs),
-            "features": len(dataset.feature_names),
-            "archive": str(archive.relative_to(ROOT)),
-            "metadata": str(metadata.relative_to(ROOT)),
-        })
+        audit.append(
+            {
+                "name": dataset.name,
+                "task": dataset.task,
+                "train_rows": len(dataset.train_inputs),
+                "validation_rows": len(dataset.validation_inputs),
+                "test_rows": len(dataset.test_inputs),
+                "features": len(dataset.feature_names),
+                "archive": str(archive.relative_to(ROOT)),
+                "metadata": str(metadata.relative_to(ROOT)),
+            }
+        )
     print(json.dumps(audit, indent=2))
 
 

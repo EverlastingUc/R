@@ -22,10 +22,25 @@ FloatArray = NDArray[np.float64]
 IRIS_URL = "https://archive.ics.uci.edu/static/public/53/iris.zip"
 BIKE_URL = "https://archive.ics.uci.edu/static/public/275/bike+sharing+dataset.zip"
 IRIS_CLASSES = ("Iris-setosa", "Iris-versicolor", "Iris-virginica")
-IRIS_FEATURES = ("sepal_length_cm", "sepal_width_cm", "petal_length_cm", "petal_width_cm")
+IRIS_FEATURES = (
+    "sepal_length_cm",
+    "sepal_width_cm",
+    "petal_length_cm",
+    "petal_width_cm",
+)
 BIKE_FEATURES = (
-    "season", "yr", "mnth", "hr", "holiday", "weekday", "workingday",
-    "weathersit", "temp", "atemp", "hum", "windspeed",
+    "season",
+    "yr",
+    "mnth",
+    "hr",
+    "holiday",
+    "weekday",
+    "workingday",
+    "weathersit",
+    "temp",
+    "atemp",
+    "hum",
+    "windspeed",
 )
 BIKE_REQUIRED = ("instant", "dteday", *BIKE_FEATURES, "casual", "registered", "cnt")
 
@@ -99,11 +114,14 @@ def _zip_member(archive_bytes: bytes, member_name: str) -> bytes:
     try:
         with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
             matches = [
-                item for item in archive.infolist()
+                item
+                for item in archive.infolist()
                 if PurePosixPath(item.filename).name.lower() == member_name.lower()
             ]
             if len(matches) != 1:
-                raise ValueError(f"archive must contain exactly one {member_name} member")
+                raise ValueError(
+                    f"archive must contain exactly one {member_name} member"
+                )
             if matches[0].file_size > 5 * 1024 * 1024:
                 raise ValueError("archive member exceeds the 5 MiB size limit")
             return archive.read(matches[0])
@@ -126,7 +144,13 @@ def _scale(
     mean = train.mean(axis=0)
     scale = train.std(axis=0)
     scale = np.where(scale > np.finfo(np.float64).eps, scale, 1.0)
-    return (train - mean) / scale, (validation - mean) / scale, (test - mean) / scale, mean, scale
+    return (
+        (train - mean) / scale,
+        (validation - mean) / scale,
+        (test - mean) / scale,
+        mean,
+        scale,
+    )
 
 
 def _stratified_split(
@@ -145,20 +169,31 @@ def _stratified_split(
         remaining = len(indices) - train_count
         exact_validation = remaining * validation / (validation + test)
         validation_count = int(np.floor(exact_validation))
-        groups.append((indices, train_count, validation_count, exact_validation - validation_count))
+        groups.append(
+            (
+                indices,
+                train_count,
+                validation_count,
+                exact_validation - validation_count,
+            )
+        )
         total_remaining += remaining
         base_validation += validation_count
-    target_validation = int(np.floor(total_remaining * validation / (validation + test) + 0.5))
+    target_validation = int(
+        np.floor(total_remaining * validation / (validation + test) + 0.5)
+    )
     extra = target_validation - base_validation
     order = sorted(range(len(groups)), key=lambda i: (-groups[i][3], i))
     validation_counts = [group[2] for group in groups]
     for index in order[:extra]:
         validation_counts[index] += 1
     train_parts, validation_parts, test_parts = [], [], []
-    for (indices, train_count, _, _), validation_count in zip(groups, validation_counts, strict=True):
+    for (indices, train_count, _, _), validation_count in zip(
+        groups, validation_counts, strict=True
+    ):
         train_parts.append(indices[:train_count])
-        validation_parts.append(indices[train_count:train_count + validation_count])
-        test_parts.append(indices[train_count + validation_count:])
+        validation_parts.append(indices[train_count : train_count + validation_count])
+        test_parts.append(indices[train_count + validation_count :])
     train_idx = np.concatenate(train_parts)
     validation_idx = np.concatenate(validation_parts)
     test_idx = np.concatenate(test_parts)
@@ -169,12 +204,20 @@ def _stratified_split(
 
 
 def prepare_iris(
-    archive_bytes: bytes, *, seed: int = 42, train_fraction: float = 0.70,
-    validation_fraction: float = 0.15, test_fraction: float = 0.15,
+    archive_bytes: bytes,
+    *,
+    seed: int = 42,
+    train_fraction: float = 0.70,
+    validation_fraction: float = 0.15,
+    test_fraction: float = 0.15,
 ) -> DatasetSplits:
     """Load UCI Iris, stratify by class and standardise using training rows only."""
     content = _zip_member(archive_bytes, "iris.data").decode("utf-8-sig")
-    rows = [row for row in csv.reader(io.StringIO(content)) if row and any(v.strip() for v in row)]
+    rows = [
+        row
+        for row in csv.reader(io.StringIO(content))
+        if row and any(v.strip() for v in row)
+    ]
     if len(rows) != 150 or any(len(row) != 5 for row in rows):
         raise ValueError("official Iris data must contain 150 five-column rows")
     class_map = {name: index for index, name in enumerate(IRIS_CLASSES)}
@@ -186,7 +229,9 @@ def prepare_iris(
             labels[index] = class_map[row[4].strip()]
         except (ValueError, KeyError) as error:
             raise ValueError(f"invalid Iris observation at row {index + 1}") from error
-    if not np.isfinite(features).all() or not np.array_equal(np.bincount(labels), [50, 50, 50]):
+    if not np.isfinite(features).all() or not np.array_equal(
+        np.bincount(labels), [50, 50, 50]
+    ):
         raise ValueError("Iris data must have finite values and 50 rows per class")
     train_idx, validation_idx, test_idx = _stratified_split(
         labels, seed, train_fraction, validation_fraction, test_fraction
@@ -195,24 +240,41 @@ def prepare_iris(
         features[train_idx], features[validation_idx], features[test_idx]
     )
     split_targets = {
-        "train": labels[train_idx], "validation": labels[validation_idx], "test": labels[test_idx]
+        "train": labels[train_idx],
+        "validation": labels[validation_idx],
+        "test": labels[test_idx],
     }
     counts = {
-        split: {name: int(np.count_nonzero(values == class_id))
-                for class_id, name in enumerate(IRIS_CLASSES)}
+        split: {
+            name: int(np.count_nonzero(values == class_id))
+            for class_id, name in enumerate(IRIS_CLASSES)
+        }
         for split, values in split_targets.items()
     }
     return DatasetSplits(
-        "iris", "classification", IRIS_FEATURES, "class_id",
-        train_x, labels[train_idx], validation_x, labels[validation_idx],
-        test_x, labels[test_idx], mean, scale, IRIS_CLASSES,
+        "iris",
+        "classification",
+        IRIS_FEATURES,
+        "class_id",
+        train_x,
+        labels[train_idx],
+        validation_x,
+        labels[validation_idx],
+        test_x,
+        labels[test_idx],
+        mean,
+        scale,
+        IRIS_CLASSES,
         {"strategy": "stratified_random", "seed": seed, "class_counts": counts},
     )
 
 
 def prepare_bike_hourly(
-    archive_bytes: bytes, *, train_fraction: float = 0.70,
-    validation_fraction: float = 0.15, test_fraction: float = 0.15,
+    archive_bytes: bytes,
+    *,
+    train_fraction: float = 0.70,
+    validation_fraction: float = 0.15,
+    test_fraction: float = 0.15,
 ) -> DatasetSplits:
     """Load hourly UCI Bike Sharing with chronological, whole-day splits."""
     content = _zip_member(archive_bytes, "hour.csv").decode("utf-8-sig")
@@ -227,13 +289,19 @@ def prepare_bike_hourly(
         try:
             current = date.fromisoformat(row["dteday"])
             values = [float(row[name]) for name in BIKE_FEATURES]
-            casual, registered, target = int(row["casual"]), int(row["registered"]), int(row["cnt"])
+            casual, registered, target = (
+                int(row["casual"]),
+                int(row["registered"]),
+                int(row["cnt"]),
+            )
         except (TypeError, ValueError) as error:
             raise ValueError(f"malformed Bike Sharing row {row_number}") from error
         if previous is not None and current < previous:
             raise ValueError("Bike Sharing rows must be chronological")
         if min(casual, registered, target) < 0 or target != casual + registered:
-            raise ValueError(f"row {row_number} violates non-negative counts or cnt identity")
+            raise ValueError(
+                f"row {row_number} violates non-negative counts or cnt identity"
+            )
         if not np.isfinite(values).all():
             raise ValueError(f"row {row_number} contains non-finite features")
         feature_rows.append(values)
@@ -249,18 +317,38 @@ def prepare_bike_hourly(
     _fractions(train_fraction, validation_fraction, test_fraction)
     train_end = int(np.floor(len(unique_dates) * train_fraction))
     validation_end = train_end + int(np.floor(len(unique_dates) * validation_fraction))
-    if train_end < 1 or validation_end <= train_end or validation_end >= len(unique_dates):
+    if (
+        train_end < 1
+        or validation_end <= train_end
+        or validation_end >= len(unique_dates)
+    ):
         raise ValueError("split fractions produce an empty chronological split")
-    date_groups = (unique_dates[:train_end], unique_dates[train_end:validation_end], unique_dates[validation_end:])
-    indices = tuple(np.flatnonzero(np.isin(date_values, group)) for group in date_groups)
+    date_groups = (
+        unique_dates[:train_end],
+        unique_dates[train_end:validation_end],
+        unique_dates[validation_end:],
+    )
+    indices = tuple(
+        np.flatnonzero(np.isin(date_values, group)) for group in date_groups
+    )
     train_idx, validation_idx, test_idx = indices
     train_x, validation_x, test_x, mean, scale = _scale(
         features[train_idx], features[validation_idx], features[test_idx]
     )
     return DatasetSplits(
-        "bike_sharing_hourly", "regression", BIKE_FEATURES, "cnt",
-        train_x, y[train_idx], validation_x, y[validation_idx], test_x, y[test_idx],
-        mean, scale, (),
+        "bike_sharing_hourly",
+        "regression",
+        BIKE_FEATURES,
+        "cnt",
+        train_x,
+        y[train_idx],
+        validation_x,
+        y[validation_idx],
+        test_x,
+        y[test_idx],
+        mean,
+        scale,
+        (),
         {
             "strategy": "chronological_by_calendar_day",
             "date_ranges": {
@@ -283,23 +371,36 @@ def save_prepared_dataset(
     if path.exists() or metadata_path.exists():
         raise FileExistsError("refusing to overwrite an existing prepared dataset")
     metadata = {
-        **provenance, "name": dataset.name, "task": dataset.task,
-        "feature_names": list(dataset.feature_names), "target_name": dataset.target_name,
-        "classes": list(dataset.classes), "split_metadata": dataset.split_metadata,
+        **provenance,
+        "name": dataset.name,
+        "task": dataset.task,
+        "feature_names": list(dataset.feature_names),
+        "target_name": dataset.target_name,
+        "classes": list(dataset.classes),
+        "split_metadata": dataset.split_metadata,
         "shapes": {
             name: list(getattr(dataset, name).shape)
             for name in (
-                "train_inputs", "train_targets", "validation_inputs",
-                "validation_targets", "test_inputs", "test_targets",
+                "train_inputs",
+                "train_targets",
+                "validation_inputs",
+                "validation_targets",
+                "test_inputs",
+                "test_targets",
             )
         },
     }
     with path.open("xb") as output:
         np.savez_compressed(
-            output, train_inputs=dataset.train_inputs, train_targets=dataset.train_targets,
-            validation_inputs=dataset.validation_inputs, validation_targets=dataset.validation_targets,
-            test_inputs=dataset.test_inputs, test_targets=dataset.test_targets,
-            scaler_mean=dataset.scaler_mean, scaler_scale=dataset.scaler_scale,
+            output,
+            train_inputs=dataset.train_inputs,
+            train_targets=dataset.train_targets,
+            validation_inputs=dataset.validation_inputs,
+            validation_targets=dataset.validation_targets,
+            test_inputs=dataset.test_inputs,
+            test_targets=dataset.test_targets,
+            scaler_mean=dataset.scaler_mean,
+            scaler_scale=dataset.scaler_scale,
         )
     try:
         with metadata_path.open("x", encoding="utf-8") as output:
