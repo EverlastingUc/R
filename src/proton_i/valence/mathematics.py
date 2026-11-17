@@ -17,7 +17,7 @@ _MAX_EXPRESSION_CHARS = 512
 _MAX_TOKENS = 128
 _MAX_NESTING_DEPTH = 32
 _MAX_NUMBER_DIGITS = 128
-_MAX_RESULT_DIGITS = 2_048
+_MAX_RESULT_DIGITS = 384
 
 _TOKEN_PATTERN = re.compile(
     r"\s*(?:(?P<number>(?:\d+(?:\.\d+)?|\.\d+))|(?P<symbol>[()+\-*/]))"

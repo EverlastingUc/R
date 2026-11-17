@@ -105,7 +105,7 @@ def test_parser_rejects_excessively_long_numeric_literal() -> None:
 
 
 def test_parser_rejects_results_that_exceed_integer_size_limit() -> None:
-    expression = "*".join(["9" * 128] * 40)
+    expression = "*".join(["9" * 120] * 4)
     with pytest.raises(MathematicsError, match="result size limit"):
         MathematicsEngine().evaluate(expression)
 
