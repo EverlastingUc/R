@@ -22,6 +22,7 @@ entropy-evaluate = "entropy_lm.evaluation:main"
 entropy-prepare-chat = "entropy_lm.chat_data:main"
 entropy-chat-train = "entropy_lm.chat_training:main"
 entropy-chat = "entropy_lm.chat_inference:main"
+entropy-evaluate-chat = "entropy_lm.chat_evaluation:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
