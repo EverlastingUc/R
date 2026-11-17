@@ -96,9 +96,7 @@ def test_ollama_tool_request_uses_function_schema_and_parses_call(
         }
     ]
     assert turn.content == ""
-    assert turn.tool_calls == (
-        ModelToolCall("search_web", {"query": "CSS Grid"}),
-    )
+    assert turn.tool_calls == (ModelToolCall("search_web", {"query": "CSS Grid"}),)
 
 
 def test_ollama_tool_result_messages_are_serialized_for_followup(
@@ -150,8 +148,7 @@ def test_ollama_tool_result_messages_are_serialized_for_followup(
     "tool_calls",
     [
         "not-a-list",
-        [{"function": {"name": "search_web", "arguments": "not-json-object"}}]
-        * 9,
+        [{"function": {"name": "search_web", "arguments": "not-json-object"}}] * 9,
         [{"function": {"name": "", "arguments": {}}}],
         [{"function": {"name": "search_web", "arguments": {"huge": "x" * 20_000}}}],
     ],
@@ -222,6 +219,7 @@ class FakeToolBackend:
 
 def make_registry(handler=None, requires_approval: bool = False) -> CapabilityRegistry:
     """Create a registry with one deterministic double-number tool."""
+
     def double(arguments: dict[str, object]) -> object:
         if handler is not None:
             return handler(arguments)
@@ -449,7 +447,9 @@ def test_engine_rejects_model_tool_calls_after_final_tool_free_turn() -> None:
     assert engine.history == ()
 
 
-def test_engine_rejects_invalid_model_arguments_and_does_not_store_failed_turn() -> None:
+def test_engine_rejects_invalid_model_arguments_and_does_not_store_failed_turn() -> (
+    None
+):
     backend = FakeToolBackend(
         [
             ChatTurn("", (ModelToolCall("double_number", "not-an-object"),)),

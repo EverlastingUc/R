@@ -199,7 +199,9 @@ class ValenceEngine:
                 messages.append(self._tool_result_message(call, result))
 
                 if len(messages) > 64:
-                    raise ValenceError("The model tool conversation exceeded its message limit.")
+                    raise ValenceError(
+                        "The model tool conversation exceeded its message limit."
+                    )
 
         if total_tool_calls >= self.max_tool_calls:
             return self._finish_without_tools(messages, complete_turn)

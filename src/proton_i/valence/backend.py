@@ -255,7 +255,9 @@ class OllamaChatBackend:
         if not content.strip() and not tool_calls:
             raise BackendError("The local model returned an empty assistant response.")
         if len(content) > _MAX_MESSAGE_CHARS:
-            raise BackendError("The local model response exceeded the message size limit.")
+            raise BackendError(
+                "The local model response exceeded the message size limit."
+            )
 
         return ChatTurn(content=content.strip(), tool_calls=tool_calls)
 
@@ -314,7 +316,11 @@ class OllamaChatBackend:
             if not isinstance(function, Mapping):
                 raise BackendError("The local model returned an invalid tool function.")
             name = function.get("name")
-            if not isinstance(name, str) or not name or len(name) > _MAX_TOOL_NAME_CHARS:
+            if (
+                not isinstance(name, str)
+                or not name
+                or len(name) > _MAX_TOOL_NAME_CHARS
+            ):
                 raise BackendError("The local model returned an invalid tool name.")
             arguments = function.get("arguments", {})
             try:
