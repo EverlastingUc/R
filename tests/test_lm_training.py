@@ -5,6 +5,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from entropy_lm.model import TransformerConfig
+from entropy_lm.corpus import prepare_corpus
 from entropy_lm.training import train_language_model
 
 
@@ -62,3 +63,64 @@ def test_training_rejects_invalid_accumulation_and_warmup() -> None:
         train_language_model(corpus, gradient_accumulation_steps=0)
     with pytest.raises(ValueError, match="warmup_steps"):
         train_language_model(corpus, steps=2, warmup_steps=2)
+
+
+
+def test_training_consumes_prepared_document_splits(tmp_path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    for index in range(8):
+        (source / f"doc-{index}.txt").write_text(
+            f"document {index} contains enough repeated training text. " * 8,
+            encoding="utf-8",
+        )
+    prepared = tmp_path / "prepared"
+    prepare_corpus(
+        source,
+        prepared,
+        validation_fraction=0.25,
+        test_fraction=0.125,
+        tokenizer_type="byte",
+        seed=11,
+    )
+    checkpoint = tmp_path / "prepared-model.pt"
+    history = train_language_model(
+        prepared,
+        config=TransformerConfig(
+            vocab_size=258,
+            context_length=8,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+        ),
+        steps=1,
+        batch_size=2,
+        eval_interval=1,
+        eval_batches=1,
+        checkpoint_path=checkpoint,
+    )
+    assert len(history) == 1
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    assert payload["training"]["corpus_sha256"]
+
+
+def test_prepared_dataset_rejects_stale_tokenizer_fingerprint(tmp_path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    for index in range(8):
+        (source / f"doc-{index}.txt").write_text(
+            "a sufficiently long document for this small test. " * 8,
+            encoding="utf-8",
+        )
+    prepared = tmp_path / "prepared"
+    prepare_corpus(source, prepared, tokenizer_type="byte")
+    train_file = prepared / "train.jsonl"
+    train_file.write_text(
+        train_file.read_text(encoding="utf-8").replace(
+            '"tokenizer_fingerprint":', '"tokenizer_fingerprint": "stale", "ignored":'
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="invalid metadata"):
+        train_language_model(prepared, steps=1)
