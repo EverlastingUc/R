@@ -162,6 +162,7 @@ def _load_chat_dataset(
         corpus_hash,
     )
 
+
 @torch.no_grad()
 def _evaluate(
     model: CausalLanguageModel,
@@ -270,9 +271,7 @@ def train_on_conversations(
             generator=generator,
         )
         sampled_targets = train_targets[sample_indices]
-        supervised_target_count = int(
-            (sampled_targets != IGNORE_INDEX).sum().item()
-        )
+        supervised_target_count = int((sampled_targets != IGNORE_INDEX).sum().item())
         if supervised_target_count == 0:
             raise RuntimeError("sampled training batch contains no assistant targets")
         accumulated_loss = 0.0
