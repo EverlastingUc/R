@@ -9,8 +9,8 @@ from threading import Thread
 
 import pytest
 
-from proton_i.valence.api import create_server
 from proton_i.gluons.search import SearchResult
+from proton_i.valence.api import create_server
 from proton_i.valence.backend import ChatMessage, ChatTurn, ModelToolCall
 from proton_i.valence.integrations.gluons import register_gluons_tool
 from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy, ToolDefinition
