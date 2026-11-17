@@ -160,17 +160,29 @@ class CausalLanguageModel(nn.Module):
         max_new_tokens: int,
         temperature: float = 1.0,
         top_k: int | None = None,
+        eos_token_id: int | None = None,
     ) -> Tensor:
-        """Autoregressively sample tokens, cropping to the context window."""
+        """Autoregressively sample tokens and optionally stop at an EOS token."""
         if max_new_tokens < 0:
             raise ValueError("max_new_tokens must be non-negative")
         if not math.isfinite(temperature) or temperature <= 0.0:
             raise ValueError("temperature must be positive")
         if top_k is not None and not 1 <= top_k <= self.config.vocab_size:
             raise ValueError("top_k must be within the vocabulary size")
+        if eos_token_id is not None and not 0 <= eos_token_id < self.config.vocab_size:
+            raise ValueError("eos_token_id must be within the vocabulary size")
+        if input_ids.ndim != 2 or input_ids.dtype != torch.long:
+            raise TypeError("input_ids must be a rank-2 torch.long tensor")
+        if input_ids.shape[0] < 1 or input_ids.shape[1] < 1:
+            raise ValueError("input_ids must be non-empty")
+        if torch.any(input_ids < 0) or torch.any(input_ids >= self.config.vocab_size):
+            raise ValueError("input_ids contain an out-of-vocabulary token")
         was_training = self.training
         self.eval()
         result = input_ids
+        finished = torch.zeros(
+            input_ids.shape[0], dtype=torch.bool, device=input_ids.device
+        )
         try:
             for _ in range(max_new_tokens):
                 context = result[:, -self.config.context_length :]
@@ -183,7 +195,16 @@ class CausalLanguageModel(nn.Module):
                     )
                 probabilities = F.softmax(next_logits, dim=-1)
                 next_token = torch.multinomial(probabilities, num_samples=1)
+                if eos_token_id is not None:
+                    next_token = torch.where(
+                        finished[:, None],
+                        torch.full_like(next_token, eos_token_id),
+                        next_token,
+                    )
+                    finished |= next_token.squeeze(-1).eq(eos_token_id)
                 result = torch.cat((result, next_token), dim=1)
+                if eos_token_id is not None and bool(torch.all(finished)):
+                    break
         finally:
             self.train(was_training)
         return result
