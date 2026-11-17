@@ -374,7 +374,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Train Entropy's decoder-only language model."
     )
-    parser.add_argument("corpus", type=Path, help="UTF-8 plain-text training corpus")
+    parser.add_argument("corpus", type=Path, help="UTF-8 text file or LM06 prepared-corpus directory")
     parser.add_argument("--checkpoint", type=Path, default=Path("entropy-model.pt"))
     parser.add_argument("--steps", type=int, default=1000)
     parser.add_argument("--batch-size", type=int, default=32)
