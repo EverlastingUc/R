@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from fractions import Fraction
 
-import numpy as np
 import pytest
 
 from proton_i.valence.backend import ChatMessage

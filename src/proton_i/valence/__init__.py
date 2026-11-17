@@ -19,10 +19,10 @@ __all__ = [
     "DEFAULT_OLLAMA_HOST",
     "BackendError",
     "ChatMessage",
-    "OllamaChatBackend",
-    "ValenceEngine",
-    "ValenceError",
     "MathematicsEngine",
     "MathematicsError",
     "MathematicsResult",
+    "OllamaChatBackend",
+    "ValenceEngine",
+    "ValenceError",
 ]

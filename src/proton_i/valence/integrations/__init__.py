@@ -11,7 +11,7 @@ from proton_i.valence.integrations.mathematics import (
 
 __all__ = [
     "create_gluons_tool",
-    "register_gluons_tool",
     "create_mathematics_tool",
+    "register_gluons_tool",
     "register_mathematics_tool",
 ]
