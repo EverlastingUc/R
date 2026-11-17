@@ -13,6 +13,13 @@ from decimal import Decimal, localcontext
 from fractions import Fraction
 from typing import Literal
 
+from proton_i.valence.expressions import (
+    BinaryNode,
+    ExpressionNode,
+    NumberNode,
+    UnaryNode,
+)
+
 _MAX_EXPRESSION_CHARS = 512
 _MAX_TOKENS = 128
 _MAX_NESTING_DEPTH = 32
@@ -82,8 +89,8 @@ class _ArithmeticParser:
         self.position = 0
         self.nesting_depth = 0
 
-    def parse(self) -> Fraction:
-        """Parse one complete expression, rejecting leftover tokens."""
+    def parse(self) -> ExpressionNode:
+        """Build an immutable syntax tree and reject leftover tokens."""
         if not self.tokens:
             raise MathematicsError("Expression must not be empty.")
         result = self._parse_expression()
@@ -104,38 +111,30 @@ class _ArithmeticParser:
         self.position += 1
         return token
 
-    def _parse_expression(self) -> Fraction:
+    def _parse_expression(self) -> ExpressionNode:
         value = self._parse_term()
         while (token := self._peek()) is not None and token.text in {"+", "-"}:
             operator = self._consume().text
             right = self._parse_term()
-            value = value + right if operator == "+" else value - right
-            self._check_result_size(value)
+            value = BinaryNode(operator, value, right)
         return value
 
-    def _parse_term(self) -> Fraction:
+    def _parse_term(self) -> ExpressionNode:
         value = self._parse_unary()
         while (token := self._peek()) is not None and token.text in {"*", "/"}:
             operator = self._consume().text
             right = self._parse_unary()
-            if operator == "*":
-                value *= right
-            else:
-                if right == 0:
-                    raise MathematicsError("Division by zero is undefined.")
-                value /= right
-            self._check_result_size(value)
+            value = BinaryNode(operator, value, right)
         return value
 
-    def _parse_unary(self) -> Fraction:
+    def _parse_unary(self) -> ExpressionNode:
         token = self._peek()
         if token is not None and token.text in {"+", "-"}:
             operator = self._consume().text
-            value = self._parse_unary()
-            return value if operator == "+" else -value
+            return UnaryNode(operator, self._parse_unary())
         return self._parse_primary()
 
-    def _parse_primary(self) -> Fraction:
+    def _parse_primary(self) -> ExpressionNode:
         token = self._peek()
         if token is None:
             raise MathematicsError("Expected a number or parenthesized expression.")
@@ -147,7 +146,7 @@ class _ArithmeticParser:
             except (ValueError, ZeroDivisionError) as error:
                 raise MathematicsError("Invalid numeric literal.") from error
             self._check_result_size(value)
-            return value
+            return NumberNode(value)
 
         if token.text == "(":
             self._consume()
@@ -194,11 +193,50 @@ class MathematicsEngine:
 
         tokens = self._tokenize(cleaned)
         parser = _ArithmeticParser(tokens)
-        value = parser.parse()
+        syntax_tree = parser.parse()
+        value = self._evaluate_node(syntax_tree)
         return MathematicsResult(
             expression=self._format_expression(tokens),
             value=value,
         )
+
+    def parse(self, expression: str) -> ExpressionNode:
+        """Parse a bounded expression into immutable exact-arithmetic nodes."""
+        if not isinstance(expression, str):
+            raise TypeError("expression must be a string")
+        cleaned = expression.strip()
+        if not cleaned:
+            raise MathematicsError("Expression must not be empty.")
+        if len(cleaned) > _MAX_EXPRESSION_CHARS:
+            raise MathematicsError(
+                f"Expression must be {_MAX_EXPRESSION_CHARS} characters or fewer."
+            )
+        return _ArithmeticParser(self._tokenize(cleaned)).parse()
+
+    def _evaluate_node(self, node: ExpressionNode) -> Fraction:
+        """Evaluate an allowlisted syntax tree without interpreting source text."""
+        if isinstance(node, NumberNode):
+            value = node.value
+        elif isinstance(node, UnaryNode):
+            operand = self._evaluate_node(node.operand)
+            value = operand if node.operator == "+" else -operand
+        elif isinstance(node, BinaryNode):
+            left = self._evaluate_node(node.left)
+            right = self._evaluate_node(node.right)
+            if node.operator == "+":
+                value = left + right
+            elif node.operator == "-":
+                value = left - right
+            elif node.operator == "*":
+                value = left * right
+            else:
+                if right == 0:
+                    raise MathematicsError("Division by zero is undefined.")
+                value = left / right
+        else:
+            raise MathematicsError("Unsupported expression node.")
+        _ArithmeticParser._check_result_size(value)
+        return value
 
     def solve_prompt(self, prompt: str) -> MathematicsResult | None:
         """Recognize direct arithmetic prompts without capturing ordinary questions."""

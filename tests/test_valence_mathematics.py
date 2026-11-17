@@ -13,6 +13,7 @@ from proton_i.valence.integrations.mathematics import (
     create_mathematics_tool,
     register_mathematics_tool,
 )
+from proton_i.valence.expressions import BinaryNode, NumberNode, UnaryNode
 from proton_i.valence.mathematics import MathematicsEngine, MathematicsError
 from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy, ToolExecutor
 
@@ -199,3 +200,42 @@ def test_mathematics_tool_returns_sanitized_errors() -> None:
 
     assert result.status == "failed"
     assert result.error == "Mathematical calculation failed."
+
+
+def test_parser_builds_an_immutable_expression_tree_with_precedence() -> None:
+    tree = MathematicsEngine().parse("2 + 3 * 4")
+
+    assert isinstance(tree, BinaryNode)
+    assert tree.operator == "+"
+    assert isinstance(tree.left, NumberNode)
+    assert tree.left.value == Fraction(2)
+    assert isinstance(tree.right, BinaryNode)
+    assert tree.right.operator == "*"
+    assert tree.right.left.value == Fraction(3)
+    assert tree.right.right.value == Fraction(4)
+
+
+def test_parser_preserves_unary_nodes_in_the_expression_tree() -> None:
+    tree = MathematicsEngine().parse("-(2 + 3)")
+
+    assert isinstance(tree, UnaryNode)
+    assert tree.operator == "-"
+    assert isinstance(tree.operand, BinaryNode)
+    assert tree.operand.operator == "+"
+
+
+def test_expression_tree_nodes_are_immutable() -> None:
+    tree = MathematicsEngine().parse("2 + 3")
+    assert isinstance(tree, BinaryNode)
+
+    with pytest.raises((AttributeError, TypeError)):
+        tree.operator = "-"  # type: ignore[misc]
+
+
+def test_explicit_parse_and_evaluate_are_separate_operations() -> None:
+    engine = MathematicsEngine()
+    tree = engine.parse("(1/3 + 1/6) * 6")
+
+    assert isinstance(tree, BinaryNode)
+    assert engine._evaluate_node(tree) == Fraction(3)
+    assert engine.evaluate("(1/3 + 1/6) * 6").value == Fraction(3)
