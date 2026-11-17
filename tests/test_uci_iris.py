@@ -16,9 +16,7 @@ def write_iris_archive(path) -> None:
     for class_id, class_name in enumerate(CLASS_NAMES):
         for index in range(50):
             base = 1.0 + class_id * 2.0 + index * 0.01
-            writer.writerow(
-                [base, base + 0.2, base + 0.4, base + 0.6, class_name]
-            )
+            writer.writerow([base, base + 0.2, base + 0.4, base + 0.6, class_name])
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("iris.data", buffer.getvalue())
 
