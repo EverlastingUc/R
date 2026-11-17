@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Sequence
 from decimal import Decimal
 from fractions import Fraction
 
 import pytest
 
+from proton_i.valence.backend import ChatMessage, ChatTurn, ModelToolCall
+from proton_i.valence.engine import ValenceEngine
 from proton_i.valence.expressions import BinaryNode, FunctionNode
 from proton_i.valence.mathematics import MathematicsEngine, MathematicsError
+from proton_i.valence.runtime import build_tool_environment
 
 
 @pytest.mark.parametrize(
@@ -198,3 +203,49 @@ def test_irrational_square_root_remains_approximate_after_arithmetic() -> None:
     result = MathematicsEngine().evaluate("sqrt(2) * sqrt(2)")
     assert result.exact_result is None
     assert float(result.decimal_approximation) == pytest.approx(2.0, rel=1e-14)
+
+
+
+def test_model_requested_irrational_root_is_returned_as_approximate() -> None:
+    class MathToolBackend:
+        def __init__(self) -> None:
+            self.turns = [
+                ChatTurn(
+                    "",
+                    (
+                        ModelToolCall(
+                            "calculate_expression",
+                            {"expression": "sqrt(2)"},
+                        ),
+                    ),
+                ),
+                ChatTurn("The square root of 2 is approximately 1.41421356237309."),
+            ]
+            self.calls: list[tuple[list[ChatMessage], list[dict[str, object]]]] = []
+
+        def complete(self, _messages: Sequence[ChatMessage]) -> str:
+            raise AssertionError("tool-enabled backend should use complete_turn")
+
+        def complete_turn(self, messages, tools) -> ChatTurn:
+            self.calls.append((list(messages), list(tools)))
+            return self.turns.pop(0)
+
+    backend = MathToolBackend()
+    registry, policy = build_tool_environment()
+    assistant = ValenceEngine(
+        backend,
+        registry=registry,
+        tool_policy=policy,
+    )
+
+    answer = assistant.ask("Explain the evaluation of sqrt(2)")
+
+    assert "approximately" in answer
+    tool_messages = [
+        message for message in backend.calls[1][0] if message.role == "tool"
+    ]
+    assert len(tool_messages) == 1
+    result = json.loads(tool_messages[0].content)
+    assert result["data"]["exact_result"] is None
+    assert result["data"]["decimal_approximation"].startswith("1.41421356237309")
+    assert "≈" in result["data"]["answer"]

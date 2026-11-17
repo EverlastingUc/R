@@ -203,7 +203,7 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
                         "supported" if model_supports_tools else "text_only"
                     ),
                     "web_search": search_status,
-                    "mathematics_engine": "basic_arithmetic",
+                    "mathematics_engine": "basic_number_systems",
                     "mathematics_tool": (
                         "enabled"
                         if self.server.registry is not None
