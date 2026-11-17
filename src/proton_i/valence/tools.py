@@ -242,6 +242,16 @@ class ToolResult:
         return payload
 
 
+class ToolHandlerError(RuntimeError):
+    """A deliberately sanitized, application-authored tool failure."""
+
+    def __init__(self, message: str) -> None:
+        """Create a short safe error message for a tool consumer."""
+        if not isinstance(message, str) or not message.strip() or len(message) > 500:
+            raise ValueError("tool handler error must be 1 to 500 characters")
+        super().__init__(message.strip())
+
+
 class CapabilityRegistry:
     """Thread-safe registry of application-owned tools and their input schemas."""
 
@@ -355,6 +365,8 @@ class ToolExecutor:
 
         try:
             output = definition.handler(normalized_arguments)
+        except ToolHandlerError as error:
+            return ToolResult(name, "failed", error=str(error))
         except Exception as _error:  # noqa: BLE001
             return ToolResult(name, "failed", error="Tool execution failed.")
 
