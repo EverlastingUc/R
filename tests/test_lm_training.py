@@ -67,7 +67,6 @@ def test_training_rejects_invalid_accumulation_and_warmup() -> None:
         train_language_model(corpus, steps=2, warmup_steps=2)
 
 
-
 def test_training_consumes_prepared_document_splits(tmp_path) -> None:
     source = tmp_path / "source"
     source.mkdir()
