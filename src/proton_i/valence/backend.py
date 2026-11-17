@@ -38,7 +38,10 @@ class ModelToolCall:
     def as_payload(self) -> dict[str, object]:
         """Return the Ollama-compatible assistant tool-call representation."""
         arguments = dict(self.arguments) if isinstance(self.arguments, Mapping) else {}
-        return {"function": {"name": self.name, "arguments": arguments}}
+        return {
+            "type": "function",
+            "function": {"name": self.name, "arguments": arguments},
+        }
 
 
 @dataclass(frozen=True, slots=True)

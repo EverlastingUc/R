@@ -48,6 +48,7 @@ def test_ollama_tool_request_uses_function_schema_and_parses_call(
                 "content": "",
                 "tool_calls": [
                     {
+                        "type": "function",
                         "function": {
                             "name": "search_web",
                             "arguments": {"query": "CSS Grid"},
@@ -96,7 +97,9 @@ def test_ollama_tool_request_uses_function_schema_and_parses_call(
         }
     ]
     assert turn.content == ""
-    assert turn.tool_calls == (ModelToolCall("search_web", {"query": "CSS Grid"}),)
+    assert turn.tool_calls == (
+        ModelToolCall("search_web", {"query": "CSS Grid"}),
+    )
 
 
 def test_ollama_tool_result_messages_are_serialized_for_followup(
@@ -132,7 +135,10 @@ def test_ollama_tool_result_messages_are_serialized_for_followup(
         "role": "assistant",
         "content": "",
         "tool_calls": [
-            {"function": {"name": "search_web", "arguments": {"query": "HTML"}}}
+            {
+                "type": "function",
+                "function": {"name": "search_web", "arguments": {"query": "HTML"}},
+            }
         ],
     }
     assert payload["messages"][2] == {
