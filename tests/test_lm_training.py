@@ -119,6 +119,6 @@ def test_prepared_dataset_rejects_stale_tokenizer_fingerprint(tmp_path) -> None:
     train_file = prepared / "train.jsonl"
     record = json.loads(train_file.read_text(encoding="utf-8").splitlines()[0])
     record["tokenizer_fingerprint"] = "stale"
-    train_file.write_text(json.dumps(record) + "\\n", encoding="utf-8")
+    train_file.write_text(json.dumps(record) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="invalid metadata"):
         train_language_model(prepared, steps=1)
