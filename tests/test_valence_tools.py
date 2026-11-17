@@ -67,7 +67,7 @@ def test_registry_rejects_non_tool_definitions() -> None:
         registry.register("add_numbers")  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("name", ["AddNumbers", "tool name", "x", "../shell"])
+@pytest.mark.parametrize("name", ["AddNumbers", "tool name", "1x", "../shell"])
 def test_tool_definition_rejects_invalid_names(name: str) -> None:
     with pytest.raises(ValueError, match="lowercase identifiers"):
         ToolDefinition(
@@ -419,3 +419,82 @@ def test_policy_rejects_invalid_limits_and_tool_names() -> None:
         ExecutionPolicy(frozenset({"Bad Name"}))
     with pytest.raises(ValueError, match="max_output_bytes"):
         ExecutionPolicy(frozenset(), max_output_bytes=0)
+
+
+
+def test_policy_rejects_a_string_instead_of_a_tool_name_collection() -> None:
+    with pytest.raises(TypeError, match="iterable of tool names"):
+        ExecutionPolicy("add_numbers")  # type: ignore[arg-type]
+
+
+def test_executor_rejects_non_string_argument_keys() -> None:
+    registry = CapabilityRegistry()
+    registry.register(
+        ToolDefinition(
+            name="accept_object",
+            description="Accept an object with named fields.",
+            parameters=(ToolParameter("value", "object", "An object."),),
+            handler=lambda arguments: arguments,
+        )
+    )
+    result = ToolExecutor(registry).execute(
+        "accept_object",
+        {1: "not a JSON property name"},  # type: ignore[dict-item]
+        ExecutionPolicy(frozenset({"accept_object"})),
+    )
+
+    assert result.status == "invalid"
+    assert "names must be strings" in result.error
+
+
+def test_executor_rejects_extremely_large_integer_as_number() -> None:
+    registry = CapabilityRegistry()
+    registry.register(
+        ToolDefinition(
+            name="accept_number",
+            description="Accept a finite number.",
+            parameters=(ToolParameter("value", "number", "A finite number."),),
+            handler=lambda arguments: arguments,
+        )
+    )
+    result = ToolExecutor(registry).execute(
+        "accept_number",
+        {"value": 10**1000},
+        ExecutionPolicy(frozenset({"accept_number"})),
+    )
+
+    assert result.status == "invalid"
+    assert "wrong type" in result.error
+
+
+def test_executor_rejects_circular_argument_objects() -> None:
+    registry = CapabilityRegistry()
+    registry.register(
+        ToolDefinition(
+            name="accept_text",
+            description="Accept a text input.",
+            parameters=(ToolParameter("text", "string", "Input text."),),
+            handler=lambda arguments: arguments,
+        )
+    )
+    circular: dict[str, object] = {}
+    circular["self"] = circular
+
+    result = ToolExecutor(registry).execute(
+        "accept_text",
+        circular,
+        ExecutionPolicy(frozenset({"accept_text"})),
+    )
+
+    assert result.status == "invalid"
+    assert "valid JSON" in result.error
+
+
+def test_tool_parameter_rejects_extremely_large_numeric_bounds() -> None:
+    with pytest.raises(ValueError, match="finite numbers"):
+        ToolParameter(
+            "value",
+            "number",
+            "A bounded value.",
+            minimum=10**1000,
+        )

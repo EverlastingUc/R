@@ -26,6 +26,16 @@ def _is_tool_name(value: object) -> bool:
     return isinstance(value, str) and _TOOL_NAME_PATTERN.fullmatch(value) is not None
 
 
+def _is_finite_number(value: object) -> bool:
+    """Accept finite JSON numbers while rejecting booleans and huge integers."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 def _json_bytes(value: object) -> bytes:
     """Serialize a value as strict UTF-8 JSON, rejecting NaN and custom objects."""
     return json.dumps(
@@ -82,11 +92,7 @@ class ToolParameter:
             if self.value_type not in {"integer", "number"}:
                 raise ValueError("minimum and maximum require a numeric parameter")
             for bound in (self.minimum, self.maximum):
-                if bound is not None and (
-                    isinstance(bound, bool)
-                    or not isinstance(bound, (int, float))
-                    or not math.isfinite(bound)
-                ):
+                if bound is not None and not _is_finite_number(bound):
                     raise ValueError("numeric bounds must be finite numbers")
             if (
                 self.minimum is not None
@@ -190,6 +196,8 @@ class ExecutionPolicy:
 
     def __post_init__(self) -> None:
         """Validate the allowlist and keep payload limits within a hard ceiling."""
+        if isinstance(self.allowed_tools, str):
+            raise TypeError("allowed_tools must be an iterable of tool names")
         try:
             names = frozenset(self.allowed_tools)
         except TypeError as error:
@@ -324,10 +332,14 @@ class ToolExecutor:
             return ToolResult(
                 name, "invalid", error="Tool arguments must be a JSON object."
             )
+        if any(not isinstance(key, str) for key in arguments):
+            return ToolResult(
+                name, "invalid", error="Tool argument names must be strings."
+            )
 
         try:
             encoded_arguments = _json_bytes(dict(arguments))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, RecursionError):
             return ToolResult(
                 name, "invalid", error="Tool arguments must be valid JSON."
             )
@@ -343,12 +355,12 @@ class ToolExecutor:
 
         try:
             output = definition.handler(normalized_arguments)
-        except Exception:  # noqa: BLE001 - redact all handler failures at the trust boundary.
+        except Exception as _error:  # noqa: BLE001
             return ToolResult(name, "failed", error="Tool execution failed.")
 
         try:
             encoded_output = _json_bytes(output)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, RecursionError):
             return ToolResult(
                 name,
                 "failed",
@@ -388,11 +400,7 @@ def _validate_arguments(
             "string": lambda item: isinstance(item, str),
             "integer": lambda item: isinstance(item, int)
             and not isinstance(item, bool),
-            "number": lambda item: (
-                isinstance(item, (int, float))
-                and not isinstance(item, bool)
-                and math.isfinite(item)
-            ),
+            "number": _is_finite_number,
             "boolean": lambda item: isinstance(item, bool),
             "object": lambda item: isinstance(item, dict),
             "array": lambda item: isinstance(item, list),
