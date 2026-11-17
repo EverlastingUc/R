@@ -50,7 +50,7 @@ def _validate_messages(
     messages: list[dict[str, str]] = []
     for index, message in enumerate(value):
         if not isinstance(message, dict):
-            raise ValueError(f"{location}: message {index} must be an object")
+            raise TypeError(f"{location}: message {index} must be an object")
         role = message.get("role")
         content = message.get("content")
         if role not in ALLOWED_ROLES:
@@ -98,7 +98,7 @@ def _read_conversations(
                     f"invalid conversation JSON at {relative}:{line_number}"
                 ) from error
             if not isinstance(record, dict):
-                raise ValueError(
+                raise TypeError(
                     f"conversation record must be an object at {relative}:{line_number}"
                 )
             messages = _validate_messages(
