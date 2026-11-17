@@ -214,21 +214,21 @@ def train_language_model(
         if not isinstance(text, str) or not text.strip():
             raise ValueError("training text must be a non-empty string")
         split_at = int(len(text) * (1.0 - validation_fraction))
-    train_text = text[:split_at]
-    validation_text = text[split_at:]
-    if tokenizer_type == "byte":
-        tokenizer: ByteTokenizer | BPETokenizer = ByteTokenizer()
-    elif tokenizer_type == "bpe":
-        tokenizer = BPETokenizer.train([train_text], vocab_size=bpe_vocab_size)
-    else:
-        raise ValueError("tokenizer_type must be 'byte' or 'bpe'")
+        train_text = text[:split_at]
+        validation_text = text[split_at:]
+        if tokenizer_type == "byte":
+            tokenizer: ByteTokenizer | BPETokenizer = ByteTokenizer()
+        elif tokenizer_type == "bpe":
+            tokenizer = BPETokenizer.train([train_text], vocab_size=bpe_vocab_size)
+        else:
+            raise ValueError("tokenizer_type must be 'byte' or 'bpe'")
 
-    train_tokens = torch.tensor(
-        tokenizer.encode(train_text, add_bos=True, add_eos=True), dtype=torch.long
-    )
-    validation_tokens = torch.tensor(
-        tokenizer.encode(validation_text, add_bos=True, add_eos=True), dtype=torch.long
-    )
+        train_tokens = torch.tensor(
+            tokenizer.encode(train_text, add_bos=True, add_eos=True), dtype=torch.long
+        )
+        validation_tokens = torch.tensor(
+            tokenizer.encode(validation_text, add_bos=True, add_eos=True), dtype=torch.long
+        )
     architecture = config or TransformerConfig(vocab_size=tokenizer.vocab_size)
     if architecture.vocab_size != tokenizer.vocab_size:
         raise ValueError("model vocab_size must match the selected tokenizer")
@@ -258,7 +258,8 @@ def train_language_model(
     best_validation_loss = math.inf
     evaluations_without_improvement = 0
     completed_steps = 0
-    corpus_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    if not (isinstance(text, Path) and text.is_dir()):
+        corpus_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
     checkpoint_training = {
         "steps": steps,
         "completed_steps": 0,
