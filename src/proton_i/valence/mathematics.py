@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
-from decimal import Decimal, DecimalException, localcontext
+from decimal import Decimal, localcontext
 from fractions import Fraction
 from typing import Literal
 
@@ -421,9 +421,12 @@ class MathematicsEngine:
             and not starts_function_call
         ):
             return None
-        if match is None and not starts_function_call:
-            if _DIRECT_EXPRESSION.fullmatch(candidate) is None:
-                return None
+        if (
+            match is None
+            and not starts_function_call
+            and _DIRECT_EXPRESSION.fullmatch(candidate) is None
+        ):
+            return None
 
         return self.evaluate(candidate)
 
