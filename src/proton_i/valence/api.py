@@ -138,7 +138,9 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(body.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
-            self._send_json(400, {"error": "Request body must contain valid UTF-8 JSON."})
+            self._send_json(
+                400, {"error": "Request body must contain valid UTF-8 JSON."}
+            )
             return None
         if not isinstance(payload, dict):
             self._send_json(400, {"error": "JSON request body must be an object."})
@@ -148,7 +150,9 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         """Expose liveness and the explicit capability matrix."""
         if not self._origin_is_local():
-            self._send_json(403, {"error": "Only same-origin loopback requests are allowed."})
+            self._send_json(
+                403, {"error": "Only same-origin loopback requests are allowed."}
+            )
             return
         path = urlsplit(self.path).path
         if path == "/health":
@@ -180,7 +184,9 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         """Handle chat and conversation-reset requests."""
         if not self._origin_is_local():
-            self._send_json(403, {"error": "Only loopback browser origins are allowed."})
+            self._send_json(
+                403, {"error": "Only loopback browser origins are allowed."}
+            )
             return
 
         path = urlsplit(self.path).path
@@ -199,7 +205,9 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
         if isinstance(session_value, str) and (
             not session_value or len(session_value) > 128
         ):
-            self._send_json(400, {"error": "session_id must contain 1 to 128 characters."})
+            self._send_json(
+                400, {"error": "session_id must contain 1 to 128 characters."}
+            )
             return
 
         if path == "/v1/reset":
@@ -214,13 +222,17 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "message must be a non-empty string."})
             return
         if len(message) > 12_000:
-            self._send_json(413, {"error": "message exceeds the 12,000 character limit."})
+            self._send_json(
+                413, {"error": "message exceeds the 12,000 character limit."}
+            )
             return
 
         if session_id is None:
             created = self.server.create_session()
             if created is None:
-                self._send_json(429, {"error": "The in-memory session limit has been reached."})
+                self._send_json(
+                    429, {"error": "The in-memory session limit has been reached."}
+                )
                 return
             session_id, session = created
         else:
@@ -267,11 +279,7 @@ def create_server(
         raise ValueError("Valence API must bind to an IPv4 loopback address") from error
     if address.version != 4 or not address.is_loopback:
         raise ValueError("Valence API must bind to an IPv4 loopback address")
-    if (
-        not isinstance(port, int)
-        or isinstance(port, bool)
-        or not 0 <= port <= 65535
-    ):
+    if not isinstance(port, int) or isinstance(port, bool) or not 0 <= port <= 65535:
         raise ValueError("port must be an integer between 0 and 65535")
     if (
         not isinstance(max_sessions, int)

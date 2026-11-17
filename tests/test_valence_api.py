@@ -242,7 +242,6 @@ def test_api_refuses_non_loopback_bind_address() -> None:
         create_server(RecordingBackend(), host="0.0.0.0", port=8765)
 
 
-
 def test_api_accepts_same_origin_loopback_browser_request(running_api) -> None:
     server, _backend = running_api
     origin = f"http://127.0.0.1:{server.server_address[1]}"
