@@ -242,7 +242,6 @@ def test_explicit_parse_and_evaluate_are_separate_operations() -> None:
     assert engine.evaluate("(1/3 + 1/6) * 6").value == Fraction(3)
 
 
-
 def test_model_requested_calculation_runs_through_default_tool_environment() -> None:
     class CalculatorBackend:
         def __init__(self) -> None:
