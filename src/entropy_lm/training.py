@@ -340,10 +340,10 @@ def train_language_model(
         saved_training = saved.get("training")
         if not isinstance(saved_training, dict):
             raise ValueError("resume checkpoint training metadata is malformed")
-        if saved_training.get("run_config") != run_config:
-            raise ValueError("resume checkpoint training configuration does not match")
         if saved_training.get("corpus_sha256") != corpus_sha256:
             raise ValueError("resume checkpoint corpus does not match")
+        if saved_training.get("run_config") != run_config:
+            raise ValueError("resume checkpoint training configuration does not match")
         required_fields = ("model_state", "optimizer_state", "scheduler_state")
         if any(not isinstance(saved.get(key), dict) for key in required_fields):
             raise ValueError("resume checkpoint is missing training state")
@@ -357,9 +357,7 @@ def train_language_model(
             history = saved_training["history"]
             completed_steps = int(saved_training["completed_steps"])
             best_value = saved_training.get("best_validation_loss")
-            best_validation_loss = (
-                math.inf if best_value is None else float(best_value)
-            )
+            best_validation_loss = math.inf if best_value is None else float(best_value)
             evaluations_without_improvement = int(
                 saved_training.get("evaluations_without_improvement", 0)
             )
@@ -372,7 +370,9 @@ def train_language_model(
             cuda_states = rng_state.get("torch_cuda", [])
             if cuda_states and target_device.type == "cuda":
                 if len(cuda_states) != torch.cuda.device_count():
-                    raise ValueError("resume checkpoint CUDA device count does not match")
+                    raise ValueError(
+                        "resume checkpoint CUDA device count does not match"
+                    )
                 torch.cuda.set_rng_state_all(cuda_states)
         except (KeyError, TypeError, RuntimeError, OverflowError) as error:
             raise ValueError("resume checkpoint training state is invalid") from error
@@ -395,9 +395,9 @@ def train_language_model(
     def capture_rng_state() -> dict[str, Any]:
         return {
             "torch_cpu": torch.get_rng_state(),
-            "torch_cuda": torch.cuda.get_rng_state_all()
-            if torch.cuda.is_available()
-            else [],
+            "torch_cuda": (
+                torch.cuda.get_rng_state_all() if torch.cuda.is_available() else []
+            ),
             "train_generator": train_generator.get_state(),
             "training_eval_generator": training_eval_generator.get_state(),
             "validation_generator": validation_generator.get_state(),
