@@ -16,9 +16,7 @@ def load_model_checkpoint(
     path: str | Path, *, device: str = "cpu"
 ) -> CausalLanguageModel:
     """Load a weights-only LM-02 checkpoint and validate its architecture."""
-    checkpoint: Any = torch.load(
-        Path(path), map_location=device, weights_only=True
-    )
+    checkpoint: Any = torch.load(Path(path), map_location=device, weights_only=True)
     if not isinstance(checkpoint, dict) or checkpoint.get("format_version") != 1:
         raise ValueError("unsupported or malformed language-model checkpoint")
     architecture = checkpoint.get("architecture")
