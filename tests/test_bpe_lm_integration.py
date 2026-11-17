@@ -18,12 +18,21 @@ def test_bpe_training_saves_and_reloads_matching_tokenizer(tmp_path):
     history = train_language_model(
         corpus,
         config=TransformerConfig(
-            vocab_size=tokenizer.vocab_size, context_length=12,
-            embedding_dim=16, num_heads=2, num_layers=1, dropout=0.0,
+            vocab_size=tokenizer.vocab_size,
+            context_length=12,
+            embedding_dim=16,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
         ),
-        steps=1, batch_size=2, eval_interval=1, eval_batches=1,
-        seed=11, checkpoint_path=checkpoint,
-        tokenizer_type="bpe", bpe_vocab_size=280,
+        steps=1,
+        batch_size=2,
+        eval_interval=1,
+        eval_batches=1,
+        seed=11,
+        checkpoint_path=checkpoint,
+        tokenizer_type="bpe",
+        bpe_vocab_size=280,
     )
     assert len(history) == 1
     model = load_model_checkpoint(checkpoint)
@@ -37,10 +46,16 @@ def test_byte_checkpoint_remains_backward_compatible(tmp_path):
     train_language_model(
         "Byte tokenizer compatibility test. " * 100,
         config=TransformerConfig(
-            context_length=12, embedding_dim=16,
-            num_heads=2, num_layers=1, dropout=0.0,
+            context_length=12,
+            embedding_dim=16,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
         ),
-        steps=1, batch_size=2, eval_interval=1, eval_batches=1,
+        steps=1,
+        batch_size=2,
+        eval_interval=1,
+        eval_batches=1,
         checkpoint_path=checkpoint,
     )
     model = load_model_checkpoint(checkpoint)
