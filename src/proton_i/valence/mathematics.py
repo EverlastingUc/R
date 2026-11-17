@@ -158,7 +158,9 @@ class _MathematicsParser:
     def _parse_primary(self) -> ExpressionNode:
         token = self._peek()
         if token is None:
-            raise MathematicsError("Expected a number, function, or parenthesized expression.")
+            raise MathematicsError(
+                "Expected a number, function, or parenthesized expression."
+            )
 
         if token.kind == "number":
             self._consume()
@@ -202,9 +204,7 @@ class _MathematicsParser:
         self._consume()
         self.nesting_depth += 1
         if self.nesting_depth > _MAX_NESTING_DEPTH:
-            raise MathematicsError(
-                f"Function nesting limit is {_MAX_NESTING_DEPTH}."
-            )
+            raise MathematicsError(f"Function nesting limit is {_MAX_NESTING_DEPTH}.")
 
         arguments: list[ExpressionNode] = []
         closing = self._peek()
@@ -366,7 +366,9 @@ class MathematicsEngine:
         if name == "sqrt":
             value = arguments[0]
             if value < 0:
-                raise MathematicsError("Square root of a negative real number is undefined.")
+                raise MathematicsError(
+                    "Square root of a negative real number is undefined."
+                )
             if isinstance(value, Fraction):
                 numerator_root = math.isqrt(value.numerator)
                 denominator_root = math.isqrt(value.denominator)
@@ -414,7 +416,10 @@ class MathematicsEngine:
         has_operator = any(character in candidate for character in "+-*/%().")
         if not starts_function_call and not has_operator:
             return None
-        if any(character.isalpha() for character in candidate) and not starts_function_call:
+        if (
+            any(character.isalpha() for character in candidate)
+            and not starts_function_call
+        ):
             return None
         if match is None and not starts_function_call:
             if _DIRECT_EXPRESSION.fullmatch(candidate) is None:

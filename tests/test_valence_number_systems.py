@@ -10,6 +10,7 @@ import pytest
 from proton_i.valence.expressions import BinaryNode, FunctionNode
 from proton_i.valence.mathematics import MathematicsEngine, MathematicsError
 
+
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
@@ -156,7 +157,6 @@ def test_function_parser_never_accepts_python_execution_syntax(
 ) -> None:
     with pytest.raises(MathematicsError):
         MathematicsEngine().evaluate(expression)
-
 
 
 @pytest.mark.parametrize(
