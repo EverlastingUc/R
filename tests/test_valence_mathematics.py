@@ -9,11 +9,11 @@ import pytest
 
 from proton_i.valence.backend import ChatMessage
 from proton_i.valence.engine import ValenceEngine, ValenceError
+from proton_i.valence.expressions import BinaryNode, NumberNode, UnaryNode
 from proton_i.valence.integrations.mathematics import (
     create_mathematics_tool,
     register_mathematics_tool,
 )
-from proton_i.valence.expressions import BinaryNode, NumberNode, UnaryNode
 from proton_i.valence.mathematics import MathematicsEngine, MathematicsError
 from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy, ToolExecutor
 
