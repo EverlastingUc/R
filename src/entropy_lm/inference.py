@@ -18,7 +18,10 @@ def load_model_checkpoint(
 ) -> CausalLanguageModel:
     """Load and validate a byte-token or BPE-token language-model checkpoint."""
     checkpoint: Any = torch.load(Path(path), map_location=device, weights_only=True)
-    if not isinstance(checkpoint, dict) or checkpoint.get("format_version") not in (1, 2):
+    if not isinstance(checkpoint, dict) or checkpoint.get("format_version") not in (
+        1,
+        2,
+    ):
         raise ValueError("unsupported or malformed language-model checkpoint")
     architecture = checkpoint.get("architecture")
     state = checkpoint.get("model_state")
