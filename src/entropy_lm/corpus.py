@@ -39,7 +39,9 @@ def _discover_files(source: Path, output: Path) -> list[Path]:
     return files
 
 
-def _read_documents(source: Path, output: Path) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+def _read_documents(
+    source: Path, output: Path
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     documents: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
     by_hash: dict[str, dict[str, Any]] = {}
@@ -255,12 +257,17 @@ def main() -> None:
         tokenizer_type=args.tokenizer,
         vocab_size=args.vocab_size,
     )
-    print(json.dumps({
-        "documents": manifest["document_count"],
-        "splits": manifest["splits"],
-        "token_counts": manifest["token_counts"],
-        "manifest": str(args.output / "manifest.json"),
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "documents": manifest["document_count"],
+                "splits": manifest["splits"],
+                "token_counts": manifest["token_counts"],
+                "manifest": str(args.output / "manifest.json"),
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":
