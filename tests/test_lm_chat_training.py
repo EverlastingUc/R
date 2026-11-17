@@ -123,3 +123,122 @@ def test_sft_loader_rejects_label_id_mismatch(tmp_path):
     )
     with pytest.raises(ValueError, match="do not align"):
         _load_chat_dataset(prepared, context_length=16)
+
+
+def test_sft_training_resumes_exactly_after_a_non_evaluation_step(tmp_path):
+    source = tmp_path / "source"
+    _write_chat_corpus(source)
+    prepared = tmp_path / "prepared"
+    prepare_chat_dataset(
+        source,
+        prepared,
+        validation_fraction=0.2,
+        test_fraction=0.2,
+        tokenizer_type="byte",
+        seed=37,
+    )
+    config = TransformerConfig(
+        vocab_size=258,
+        context_length=16,
+        embedding_dim=8,
+        num_heads=2,
+        num_layers=1,
+        dropout=0.15,
+    )
+    options = {
+        "config": config,
+        "steps": 4,
+        "batch_size": 2,
+        "gradient_accumulation_steps": 2,
+        "eval_interval": 2,
+        "warmup_steps": 1,
+        "seed": 41,
+    }
+    uninterrupted_path = tmp_path / "uninterrupted.pt"
+    partial_path = tmp_path / "partial.pt"
+    uninterrupted_history = train_on_conversations(
+        prepared, checkpoint_path=uninterrupted_path, **options
+    )
+    partial_history = train_on_conversations(
+        prepared,
+        checkpoint_path=partial_path,
+        max_steps_per_run=1,
+        **options,
+    )
+    assert partial_history == []
+    partial = torch.load(partial_path, map_location="cpu", weights_only=True)
+    assert partial["training"]["completed_steps"] == 1
+    assert partial["training"]["has_best_checkpoint"] is False
+    assert set(partial["resume_state"]) == {
+        "model_state",
+        "optimizer_state",
+        "scheduler_state",
+        "rng_state",
+    }
+    assert set(partial["resume_state"]["rng_state"]) == {
+        "torch_cpu",
+        "torch_cuda",
+        "sampling_generator",
+    }
+
+    resumed_history = train_on_conversations(
+        prepared,
+        checkpoint_path=partial_path,
+        resume_from=partial_path,
+        **options,
+    )
+    uninterrupted = torch.load(
+        uninterrupted_path, map_location="cpu", weights_only=True
+    )
+    resumed = torch.load(partial_path, map_location="cpu", weights_only=True)
+    assert resumed_history == uninterrupted_history
+    assert resumed["training"]["completed_steps"] == 4
+    for name, expected in uninterrupted["model_state"].items():
+        assert torch.equal(resumed["model_state"][name], expected)
+    for name, expected in uninterrupted["resume_state"]["model_state"].items():
+        assert torch.equal(resumed["resume_state"]["model_state"][name], expected)
+
+
+def test_sft_resume_rejects_mismatched_dataset_and_training_config(tmp_path):
+    source = tmp_path / "source"
+    _write_chat_corpus(source)
+    prepared = tmp_path / "prepared"
+    prepare_chat_dataset(
+        source,
+        prepared,
+        validation_fraction=0.2,
+        test_fraction=0.2,
+        tokenizer_type="byte",
+        seed=43,
+    )
+    checkpoint = tmp_path / "resume.pt"
+    options = {
+        "config": TransformerConfig(
+            vocab_size=258,
+            context_length=16,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+        ),
+        "steps": 3,
+        "batch_size": 2,
+        "eval_interval": 1,
+        "checkpoint_path": checkpoint,
+    }
+    train_on_conversations(
+        prepared, max_steps_per_run=1, **options
+    )
+    with pytest.raises(ValueError, match="training configuration"):
+        train_on_conversations(
+            prepared,
+            resume_from=checkpoint,
+            **(options | {"learning_rate": 1e-4}),
+        )
+
+    manifest = prepared / "manifest.json"
+    manifest.write_text(manifest.read_text(encoding="utf-8") + " ", encoding="utf-8")
+    with pytest.raises(ValueError, match="corpus does not match"):
+        train_on_conversations(
+            prepared, resume_from=checkpoint, **options
+        )
