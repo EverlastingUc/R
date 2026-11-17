@@ -19,14 +19,18 @@ The current implementation is a retrieval-based baseline, not a trained generati
 
 ## Stage 2 — Valence Quarks
 
-This is a later Proton-I development stage. Its exact capabilities and acceptance criteria have not yet been specified by the owner. Do not begin it or invent its scope while implementing Gluons.
+Valence is Proton-I's complete mathematics capability. It owns mathematical knowledge and computation from basic arithmetic (including direct questions such as `2 + 2`) through algebra, geometry, trigonometry, linear algebra, probability, statistics, calculus, differential equations, discrete mathematics, number theory, numerical methods, optimisation, and advanced mathematical extensions.
+
+Valence is intended to be a deterministic, verifiable mathematics engine. It will parse problems, select an appropriate method, compute exact or approximate results, verify answers, and explain working when useful. It must not rely on a language model's unverified text as the numerical authority.
+
+The detailed scope, proposed architecture, correctness requirements, and implementation milestones are defined in [VALENCE_MATH_SPEC.md](VALENCE_MATH_SPEC.md). The scope is comprehensive, but implementation will be incremental; a domain is not considered supported until its tests and evidence exist.
 
 ## Stage 3 — Sea Quarks
 
-This is the final planned Proton-I development stage. Its exact capabilities and acceptance criteria have not yet been specified by the owner. Do not begin it or invent its scope while implementing Gluons.
+Sea Quarks is the final planned Proton-I development stage. Its capabilities have not yet been specified. Under the current stage boundary, mathematics—including elementary arithmetic—belongs to Valence, so Sea Quarks must not duplicate the mathematics engine. Define Sea Quarks separately when its purpose is decided.
 
 ## Relationship to Entropy
 
 `R` is the existing Entropy neural-network research repository. Gluons is implemented inside this repository under `src/proton_i/gluons/` and reuses its Python project packaging. Existing Entropy neural-network code, experiment reports, and checkpoints remain intact.
 
-Future stages may integrate trained components from Entropy, but no language model training or language-answering weights are claimed for Gluons 0.1.
+Future Proton-I stages may use components from Entropy, but no language model training or language-answering weights are claimed for Gluons 0.1.

@@ -263,3 +263,23 @@
   markup is best-effort and may change or be rate-limited.
 - **Next:** Run the Gluons command from a network-enabled local environment and
   verify live search. Valence Quarks has not been started.
+
+
+## 2026-11-17 — Proton-I Stage 2: Valence mathematics scope preparation
+
+- **Done:** Defined Valence as Proton-I's complete mathematics capability, from
+  elementary arithmetic through advanced mathematical extensions. Specified
+  the proposed deterministic solver architecture, parser and expression-tree
+  safety requirements, correctness/verification rules, output contract, and
+  14 incremental implementation milestones.
+- **Scope boundary:** Mathematical computation, including basic arithmetic,
+  belongs to Valence. Sea Quarks remains undefined and must not duplicate
+  mathematics under the current stage boundary. Gluons remains website
+  retrieval only.
+- **Files:** `docs/proton_i/VALENCE_MATH_SPEC.md` and the updated
+  `docs/proton_i/PROTON_I_SCOPE.md`.
+- **Evidence:** Documentation and repository state only. No Valence solver
+  code has been implemented or tested in this preparation step.
+- **Next:** Begin VQ-01 with tests-first implementation of the safe expression
+  parser and exact arithmetic, subject to owner approval of the implementation
+  milestone.
