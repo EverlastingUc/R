@@ -62,7 +62,7 @@ class OllamaChatBackend:
                 "model must be a non-empty string of at most 120 characters"
             )
         if isinstance(timeout, bool):
-            raise ValueError("timeout must be a positive finite number")
+            raise TypeError("timeout must be a positive finite number")
         try:
             timeout_value = float(timeout)
         except (TypeError, ValueError) as error:
@@ -78,7 +78,7 @@ class OllamaChatBackend:
     def _validate_host(host: str) -> str:
         """Accept only a plain HTTP loopback origin with no custom path."""
         if not isinstance(host, str):
-            raise ValueError("Ollama host must be a localhost HTTP URL")
+            raise TypeError("Ollama host must be a localhost HTTP URL")
         parsed = urlsplit(host.strip())
         if (
             parsed.scheme != "http"

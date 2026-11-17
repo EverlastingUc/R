@@ -53,7 +53,7 @@ def test_search_encodes_query_and_returns_parsed_results(
     captured: dict[str, object] = {}
 
     class FakeResponse(BytesIO):
-        def __enter__(self) -> "FakeResponse":
+        def __enter__(self) -> BytesIO:
             return self
 
         def __exit__(self, *_args: object) -> None:

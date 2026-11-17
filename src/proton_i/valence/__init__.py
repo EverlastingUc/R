@@ -10,10 +10,10 @@ from proton_i.valence.backend import (
 from proton_i.valence.engine import ValenceEngine, ValenceError
 
 __all__ = [
-    "BackendError",
-    "ChatMessage",
     "DEFAULT_MODEL",
     "DEFAULT_OLLAMA_HOST",
+    "BackendError",
+    "ChatMessage",
     "OllamaChatBackend",
     "ValenceEngine",
     "ValenceError",

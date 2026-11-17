@@ -129,7 +129,7 @@ def test_engine_rejects_invalid_configuration() -> None:
 class FakeResponse(BytesIO):
     """Minimal context-managed HTTP response."""
 
-    def __enter__(self) -> FakeResponse:
+    def __enter__(self) -> BytesIO:
         return self
 
     def __exit__(self, *_args: object) -> None:
