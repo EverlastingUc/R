@@ -88,9 +88,9 @@ class CausalLanguageModel(nn.Module):
         nn.init.ones_(self.final_norm.weight)
         nn.init.zeros_(self.final_norm.bias)
 
-    def forward(self, input_ids: Tensor, targets: Tensor | None = None) -> (
-        tuple[Tensor, Tensor | None]
-    ):
+    def forward(
+        self, input_ids: Tensor, targets: Tensor | None = None
+    ) -> tuple[Tensor, Tensor | None]:
         """Return vocabulary logits and optional next-token cross-entropy."""
         if input_ids.ndim != 2:
             raise ValueError("input_ids must have shape (batch, sequence)")
