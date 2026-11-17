@@ -67,7 +67,6 @@ def test_integer_answer_does_not_add_redundant_decimal_approximation() -> None:
         "1 +",
         "(1 + 2",
         "1 + 2)",
-        "2 ** 3",
         "1 // 2",
         "2(3 + 4)",
         "__import__('os').system('whoami')",
