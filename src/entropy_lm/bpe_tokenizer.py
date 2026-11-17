@@ -165,7 +165,7 @@ class BPETokenizer:
         Path(path).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     @classmethod
-    def load(cls, path: str | Path) -> "BPETokenizer":
+    def load(cls, path: str | Path) -> BPETokenizer:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         if payload.get("format_version") != 1 or payload.get("type") != "byte-bpe":
             raise ValueError("unsupported BPE tokenizer file")
