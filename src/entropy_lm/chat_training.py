@@ -322,9 +322,7 @@ def train_on_conversations(
             if not 0 <= completed_steps <= steps:
                 raise ValueError("SFT resume checkpoint progress is invalid")
             best_value = saved_training.get("best_validation_loss")
-            best_validation_loss = (
-                math.inf if best_value is None else float(best_value)
-            )
+            best_validation_loss = math.inf if best_value is None else float(best_value)
             evaluations_without_improvement = int(
                 saved_training.get("evaluations_without_improvement", 0)
             )
@@ -378,7 +376,9 @@ def train_on_conversations(
             "format_version": 2,
             "architecture": asdict(architecture),
             "model_state": (
-                best_model_state if best_model_state is not None else clone_model_state()
+                best_model_state
+                if best_model_state is not None
+                else clone_model_state()
             ),
             "tokenizer": _tokenizer_metadata(tokenizer),
             "training": training_metadata,
