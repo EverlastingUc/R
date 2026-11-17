@@ -58,3 +58,42 @@ def test_transformer_validates_configuration_and_input() -> None:
     )
     with pytest.raises(ValueError):
         model(torch.ones((1, 5), dtype=torch.long))
+
+
+def test_transformer_ignores_masked_targets_in_loss() -> None:
+    torch.manual_seed(17)
+    config = TransformerConfig(
+        vocab_size=20,
+        context_length=6,
+        embedding_dim=8,
+        num_heads=2,
+        num_layers=1,
+        dropout=0.0,
+    )
+    model = CausalLanguageModel(config).eval()
+    tokens = torch.randint(0, config.vocab_size, (1, 5), dtype=torch.long)
+    labels = tokens.clone()
+    labels[:, :3] = -100
+    logits, loss = model(tokens, labels)
+    expected = torch.nn.functional.cross_entropy(
+        logits[:, 3:, :].reshape(-1, config.vocab_size),
+        labels[:, 3:].reshape(-1),
+    )
+    assert loss is not None
+    assert torch.allclose(loss, expected)
+
+
+def test_transformer_rejects_all_masked_targets() -> None:
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=16,
+            context_length=4,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+        )
+    )
+    tokens = torch.ones((1, 4), dtype=torch.long)
+    targets = torch.full_like(tokens, -100)
+    with pytest.raises(ValueError, match="no supervised tokens"):
+        model(tokens, targets)
