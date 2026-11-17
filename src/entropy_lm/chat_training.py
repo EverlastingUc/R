@@ -496,6 +496,16 @@ def main() -> None:
     parser.add_argument("--early-stopping-patience", type=int)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="resume training from the checkpoint path",
+    )
+    parser.add_argument(
+        "--max-steps-this-run",
+        type=int,
+        help="pause after this many additional steps and save progress",
+    )
     args = parser.parse_args()
     metadata = json.loads((args.dataset / "tokenizer.json").read_text(encoding="utf-8"))
     history = train_on_conversations(
@@ -520,6 +530,8 @@ def main() -> None:
         seed=args.seed,
         device=args.device,
         checkpoint_path=args.checkpoint,
+        resume_from=args.checkpoint if args.resume else None,
+        max_steps_per_run=args.max_steps_this_run,
     )
     print(json.dumps(history, indent=2))
 
