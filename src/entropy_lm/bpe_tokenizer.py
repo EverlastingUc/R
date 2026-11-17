@@ -173,10 +173,7 @@ class BPETokenizer:
         if not isinstance(merges, list):
             raise TypeError("tokenizer merges must be a list")
         tokenizer = cls(tuple(pair) for pair in merges)
-        if (
-            "vocab_size" in payload
-            and payload["vocab_size"] != tokenizer.vocab_size
-        ):
+        if "vocab_size" in payload and payload["vocab_size"] != tokenizer.vocab_size:
             raise ValueError("BPE tokenizer vocabulary size is inconsistent")
         if "format_version" in payload and payload["format_version"] != 1:
             raise ValueError("unsupported BPE tokenizer file")
