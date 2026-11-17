@@ -4,8 +4,8 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from entropy_lm.model import TransformerConfig  # noqa: E402
-from entropy_lm.training import train_language_model  # noqa: E402
+from entropy_lm.model import TransformerConfig
+from entropy_lm.training import train_language_model
 
 
 def test_training_loop_learns_and_saves_checkpoint(tmp_path) -> None:
