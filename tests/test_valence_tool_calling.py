@@ -105,7 +105,7 @@ def test_ollama_tool_result_messages_are_serialized_for_followup(
 ) -> None:
     captured: dict[str, object] = {}
 
-    def fake_urlopen(request: object, _timeout: float) -> FakeResponse:
+    def fake_urlopen(request: object, **_kwargs: object) -> FakeResponse:
         captured["payload"] = json.loads(request.data.decode("utf-8"))  # type: ignore[attr-defined]
         return FakeResponse(
             b'{"message":{"role":"assistant","content":"The result is ready."}}'
@@ -413,7 +413,7 @@ def test_engine_caps_tool_rounds_and_disables_tools_for_final_turn() -> None:
     assert answer == "A final bounded response."
     assert len(backend.calls) == 2
     assert backend.calls[0][1]
-    assert backend.calls[1][1] == ()
+    assert backend.calls[1][1] == []
 
 
 def test_engine_rejects_backend_that_cannot_perform_tool_calls() -> None:
