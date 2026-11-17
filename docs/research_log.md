@@ -370,3 +370,33 @@
   model request, checks registry/policy, executes allowed tools, and feeds
   structured results back to the model. Limit tool rounds and never evaluate
   model-generated code.
+
+
+## 2026-11-17 — Valence VQ-A05: model tool-call orchestration verified
+
+- **Done:** Connected Ollama's structured function-call responses to the
+  Valence tool registry and executor. The backend validates bounded tool-call
+  envelopes and serializes assistant tool requests plus tool-role results.
+  The conversation engine enforces the application allowlist, maximum tool
+  rounds/calls, bounded tool-result messages, and final tool-free response.
+- **Application path:** Added --enable-web-search to both valence and
+  valence-api. This explicitly registers the Gluons retrieval tool and grants
+  the search_web policy permission. Without the flag, the default remains
+  deny-all and no external tool is registered.
+- **End-to-end coverage:** Added a deterministic integration test in which a
+  fake model requests Gluons search, the provider returns source-attributed
+  snippets, and the structured untrusted result is sent back to the model.
+- **Safety boundary:** Model output is never evaluated as Python or shell code.
+  Only application-registered handlers can run. Unknown, malformed, disabled,
+  disallowed, over-budget, or approval-gated tools do not execute. Web snippets
+  retain source URLs and are marked untrusted_web_content.
+- **Evidence:** GitHub Actions run 44126687355 passed. Black check, Ruff check,
+  and the full pytest suite all passed: 244 passed in 9.77 seconds.
+- **Limitations:** CI uses fake backends and an injected search provider. A real
+  local Ollama model has not been installed or exercised in this environment.
+  The local assistant's quality remains bounded by the separately installed
+  model. Search remains opt-in; no arbitrary plugin marketplace, remote model
+  routing, code execution, or full-page browser is included.
+- **Next:** VQ-A06, implement the mathematics subsystem in
+  VALENCE_MATH_SPEC.md, beginning with safe expression parsing and exact
+  arithmetic before expanding to symbolic algebra and advanced domains.

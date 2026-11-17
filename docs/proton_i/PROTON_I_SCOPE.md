@@ -20,7 +20,7 @@ Valence is Proton-I's main general-purpose conversational assistant and task-orc
 
 The target creation workspace includes websites, apps, games, images, PDFs, spreadsheets, presentations, SVG/UI components, data visualisations, 3D assets, and future audio/video workflows. These are planned capability areas, not current feature claims.
 
-Valence is designed to be model-agnostic: the conversation engine is separate from inference providers. The first working route uses a local Ollama model. The system will grow through tested milestones covering an API, tool permissions, Gluons retrieval integration, mathematics, persistent conversations, file workflows, frontend, sandboxed coding, creation modes, and multi-model comparison.
+Valence is designed to be model-agnostic: the conversation engine is separate from inference providers. The first working route uses a local Ollama model. The current implementation supports bounded model-driven tool calls through an application-owned registry. Gluons website search is opt-in with --enable-web-search in the CLI or API; tools remain disabled by default. The system will grow through tested milestones covering mathematics, persistent conversations, file workflows, frontend, sandboxed coding, creation modes, and multi-model comparison.
 
 See [VALENCE_PRODUCT_SPEC.md](VALENCE_PRODUCT_SPEC.md) for the product direction and implementation roadmap. The detailed mathematics target remains in [VALENCE_MATH_SPEC.md](VALENCE_MATH_SPEC.md); mathematics is one subsystem, not the full Valence product.
 

@@ -2,7 +2,7 @@
 
 **Product role:** Proton-I's user-facing general-purpose AI assistant  
 **Product inspiration:** ChatGPT-style conversation and DesignArena-style creative workspace  
-**Status:** VQ-A01 through VQ-A04 implemented and CI-verified; broader assistant capabilities remain planned
+**Status:** VQ-A01 through VQ-A05 implemented and CI-verified; broader assistant capabilities remain planned
 
 ## 1. Product definition
 
@@ -96,14 +96,16 @@ The current prototype supports:
 - HTTP request bodies capped at 16 KB and chat messages capped at 12,000 characters.
 - Server binding restricted to IPv4 loopback (`127.0.0.1`); browser requests with an Origin header must be same-origin loopback requests.
 - API tests using an actual ephemeral loopback HTTP server and a deterministic fake model backend. These tests need no running Ollama instance or internet connection.
+- Bounded Ollama tool-call orchestration: assistant function requests are parsed as untrusted structured data, checked against the application registry and ExecutionPolicy, executed only by registered handlers, and returned to the model as bounded tool-result messages.
+- Explicit Gluons web-search opt-in for both the CLI and local API using --enable-web-search. Without that flag, the application does not register or expose the search tool.
 
 It does not yet support:
 - Authentication, user accounts, durable sessions, session expiry, or database persistence. API sessions disappear when the server process exits.
 - Public-network hosting, HTTPS termination, cross-origin browser access, or CORS preflight handling. Keep the developer-preview API on loopback.
-- Automatic model-driven web search is not yet implemented. Gluons has a registered, application-callable adapter, but the application must explicitly allow `search_web`; the model does not yet invoke tools automatically.
+- Web search is deliberately opt-in. Start valence or valence-api with --enable-web-search to register Gluons and allow search_web; normal startup exposes no external tools. Search returns bounded snippets and source URLs, not full-page browsing.
 - Mathematics execution (math subsystem implementation is a later Valence milestone).
 - Persistent accounts, cloud sync, memory, uploads, or file parsing.
-- Model-driven tool calling is not yet connected to the executor. Gluons can be registered by the application, but it is not auto-invoked by the model; the application must explicitly allow `search_web` in an execution policy. No external tools are enabled automatically.
+- The first tool-calling implementation is limited to the local Ollama function-call protocol and application-registered tools. It is not a public plugin marketplace, arbitrary code runner, or cloud model router. No external tools are enabled automatically.
 - Arbitrary code execution, image/video/audio generation, or the creation modes above.
 - Model comparisons, voting, or leaderboards.
 - A trained Proton-I language model. This stage calls an external local model runtime; Entropy's research network is not yet a capable conversational LLM.
@@ -113,8 +115,8 @@ It does not yet support:
 1. **VQ-A01 — Local conversational core:** *implemented* backend contract, Ollama adapter, bounded conversation engine, CLI, tests.
 2. **VQ-A02 — Application API:** *implemented* typed JSON routes, loopback-only HTTP service, health/capabilities, session handling and request limits.
 3. **VQ-A03 — Tool contract:** *implemented* — typed capability registry, deny-by-default policy checks, approval gates, structured tool results, and output limits; no arbitrary code execution.
-4. **VQ-A04 — Gluons integration:** *implemented adapter* — bounded, source-attributed retrieval with untrusted-content labeling and explicit policy permission; automatic model invocation is still pending.
-5. **VQ-A05 — Model tool-call orchestration:** connect Ollama's tool-call response protocol to the registry/executor, validate each call, cap tool rounds, and return structured tool results to the model.
+4. **VQ-A04 — Gluons integration:** *implemented* — bounded, source-attributed retrieval with untrusted-content labeling and explicit policy permission.
+5. **VQ-A05 — Model tool-call orchestration:** *implemented and CI-verified* — Ollama tool-call parsing, registry/policy enforcement, bounded tool rounds/calls, structured result feedback, and explicit CLI/API opt-in for Gluons. The default remains deny-all.
 6. **VQ-A06 — Mathematical subsystem:** safe expression parsing, exact arithmetic, then the full mathematics roadmap in `VALENCE_MATH_SPEC.md`.
 7. **VQ-A07 — Conversation persistence:** storage schema, per-user isolation, export/delete, retention.
 8. **VQ-A08 — File workflows:** upload limits, content-type checks, safe parsers, citations to supplied sources.
