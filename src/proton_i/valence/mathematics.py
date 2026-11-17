@@ -217,6 +217,8 @@ class MathematicsEngine:
             return None
         if any(character.isalpha() for character in candidate):
             return None
+        if not any(character in candidate for character in "+-*/()."):
+            return None
         if match is None and _DIRECT_EXPRESSION.fullmatch(candidate) is None:
             return None
         return self.evaluate(candidate)

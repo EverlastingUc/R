@@ -116,6 +116,8 @@ def test_calculation_prompt_recognition_does_not_capture_general_questions() -> 
     assert engine.solve_prompt("What is 2 + 2?").exact_result == "4"
     assert engine.solve_prompt("calculate (1/3) + (1/6)").exact_result == "1/2"
     assert engine.solve_prompt("2+2?").exact_result == "4"
+    assert engine.solve_prompt("What is 2026?") is None
+    assert engine.solve_prompt("42") is None
     assert engine.solve_prompt("Explain CSS Flexbox") is None
     assert engine.solve_prompt("What is a neural network?") is None
     assert engine.solve_prompt("What is the area of a circle?") is None
