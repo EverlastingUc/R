@@ -50,7 +50,8 @@ def test_chat_response_uses_sft_checkpoint_and_eos_stopping(tmp_path):
                         {"role": "assistant", "content": f"Answer {index}."},
                     ]
                 }
-            ) + "\n",
+            )
+            + "\n",
             encoding="utf-8",
         )
     prepared = tmp_path / "prepared"
