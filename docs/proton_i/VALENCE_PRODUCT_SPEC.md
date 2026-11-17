@@ -2,7 +2,7 @@
 
 **Product role:** Proton-I's user-facing general-purpose AI assistant  
 **Product inspiration:** ChatGPT-style conversation and DesignArena-style creative workspace  
-**Status:** Owner-approved direction; local chat and loopback API prototype implemented, with broader assistant capabilities planned
+**Status:** VQ-A01 through VQ-A03 implemented and CI-verified; broader assistant capabilities remain planned
 
 ## 1. Product definition
 
@@ -62,8 +62,8 @@ The first implementation should establish stable boundaries before adding more c
 - `ValenceEngine`: conversation state, prompt validation, bounded context, reset.
 - `ChatBackend`: provider contract for text generation.
 - `OllamaChatBackend`: initial local inference adapter, using Ollama's non-streaming `POST /api/chat` interface.
-- `CapabilityRegistry` (planned): declares tools and modes without granting execution permissions automatically.
-- `ToolExecutor` (planned): validates typed arguments, enforces permission policy, timeouts and output limits.
+- `CapabilityRegistry` (implemented): stores application-owned tool definitions and exposes only schemas allowed by the current execution policy.
+- `ToolExecutor` (implemented): validates typed arguments, applies deny-by-default allowlists and explicit approval gates, enforces input/output size limits, and returns structured redacted results. Each trusted handler must enforce its own native timeout for blocking operations.
 - `ConversationStore` (planned): durable user/session history with access controls and deletion semantics.
 - `CreationWorkspace` (planned): task-specific artifact pipelines; each mode has a defined input/output format.
 - `ModelRouter` (planned): selects among configured providers based on capability, user choice, latency and cost constraints.
@@ -102,7 +102,8 @@ It does not yet support:
 - Web search orchestration (Gluons remains separate until a safe tool adapter is added).
 - Mathematics execution (math subsystem implementation is a later Valence milestone).
 - Persistent accounts, cloud sync, memory, uploads, or file parsing.
-- Tool/function calling, code execution, image/video/audio generation, or the creation modes above.
+- Model-driven tool calling is not yet connected to the executor, and no external tools are registered by default. The registry/executor is application-side groundwork only.
+- Arbitrary code execution, image/video/audio generation, or the creation modes above.
 - Model comparisons, voting, or leaderboards.
 - A trained Proton-I language model. This stage calls an external local model runtime; Entropy's research network is not yet a capable conversational LLM.
 
@@ -110,7 +111,7 @@ It does not yet support:
 
 1. **VQ-A01 — Local conversational core:** *implemented* backend contract, Ollama adapter, bounded conversation engine, CLI, tests.
 2. **VQ-A02 — Application API:** *implemented* typed JSON routes, loopback-only HTTP service, health/capabilities, session handling and request limits.
-3. **VQ-A03 — Tool contract:** typed capability registry, policy checks, structured tool results; no arbitrary code execution.
+3. **VQ-A03 — Tool contract:** *implemented* — typed capability registry, deny-by-default policy checks, approval gates, structured tool results, and output limits; no arbitrary code execution.
 4. **VQ-A04 — Gluons integration:** retrieval tool returning source-attributed snippets.
 5. **VQ-A05 — Mathematical subsystem:** safe expression parsing, exact arithmetic, then the full mathematics roadmap in `VALENCE_MATH_SPEC.md`.
 6. **VQ-A06 — Conversation persistence:** storage schema, per-user isolation, export/delete, retention.

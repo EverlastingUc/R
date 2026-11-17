@@ -56,7 +56,7 @@ $env:VALENCE_OLLAMA_HOST = "http://127.0.0.1:11434"
 valence
 ```
 
-The first Valence version is a local-chat prototype. Persistent memory, web-search tool use, mathematics execution, file uploads, coding sandbox, image/video generation, creation modes and model comparisons are planned milestones, not current features.
+The current Valence prototype has local chat, a loopback API, and an application-side typed tool registry. The registry is deny-by-default and no external tools are registered automatically yet. Persistent memory, Gluons tool integration, mathematics execution, file uploads, coding sandbox, image/video generation, creation modes and model comparisons are still planned milestones.
 
 See [the Valence product specification](docs/proton_i/VALENCE_PRODUCT_SPEC.md) and [its mathematics subsystem specification](docs/proton_i/VALENCE_MATH_SPEC.md).
 

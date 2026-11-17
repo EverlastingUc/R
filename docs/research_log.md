@@ -322,23 +322,25 @@
   process-local memory and disappears when the CLI exits.
 - **Next:** VQ-A02, expose the same engine through a loopback-only JSON API.
 
-## 2026-11-17 — Valence VQ-A02: loopback HTTP API verified
+## 2026-11-17 — Valence VQ-A03: typed tool contract verified
 
-- **Done:** Added a threaded local API with `/health`, `/v1/capabilities`,
-  `/v1/chat` and `/v1/reset`. Requests are JSON-only and size bounded;
-  browser Origins must match the loopback API origin; conversations are
-  isolated by random session IDs and capped at 64 in memory.
-- **Security boundary:** Server binds only to IPv4 loopback, limits JSON bodies
-  to 16 KB and chat messages to 12,000 characters, avoids logging prompts,
-  rejects non-local browser origins, and does not provide public-network access,
-  user accounts, or persistent storage.
-- **Evidence:** GitHub Actions [run 44120543232](https://github.com/EverlastingUc/R/actions/runs/44120543232) passed.
-  Black: 56 files unchanged; Ruff: all checks passed; pytest: 188 passed in
-  9.23 seconds. API session-isolation and error-redaction regression tests pass.
-- **Limitations:** The API's HTTP layer was tested against an actual ephemeral
-  loopback server, but model generation remains mocked in CI. A real Ollama
-  model still needs to be installed and run on the owner's machine. Sessions
-  are in-memory only and disappear when the API process exits.
-- **Next:** VQ-A03, define a typed capability/tool registry with explicit
-  permission checks and structured results; keep tool execution disabled until
-  each tool has a reviewed policy and tests.
+- **Done:** Added `ToolParameter`, `ToolDefinition`, `CapabilityRegistry`,
+  `ExecutionPolicy`, `ToolExecutor`, and `ToolResult`. Schemas are exposed
+  only for explicitly allowed tools. The default policy denies every tool.
+  Required fields, JSON types, enum choices, numeric bounds, string/collection
+  limits, unknown keys, and argument sizes are validated before a handler runs.
+- **Safety boundary:** Only application-registered Python handlers can execute.
+  Sensitive tools require application-side approval. Model output is never
+  interpreted as Python or shell code. Handler exceptions are redacted;
+  outputs must be JSON-compatible and within a configurable size limit.
+  Trusted handlers must enforce native timeouts for their blocking operations.
+- **Evidence:** GitHub Actions [run 44122468478](https://github.com/EverlastingUc/R/actions/runs/44122468478) passed.
+  Black: 58 files unchanged; Ruff: all checks passed; pytest: 216 passed in
+  10.01 seconds. Tests cover default-deny behavior, allowlist filtering,
+  validation, approval gates, failure redaction, serialization, and size limits.
+- **Limitations:** No external tools are registered by default and the model
+  does not yet invoke this executor automatically. This is the trusted tool
+  contract only, not a public plugin system or a code-execution sandbox.
+- **Next:** VQ-A04, integrate Gluons as a narrowly scoped, source-attributed
+  retrieval tool under an explicit policy and bounded query/result sizes.
+
