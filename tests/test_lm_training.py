@@ -216,3 +216,51 @@ def test_resume_rejects_a_different_corpus_or_training_configuration(tmp_path) -
             resume_from=checkpoint,
             **(options | {"learning_rate": 1e-4}),
         )
+
+
+def test_prepared_bpe_corpus_trains_and_evaluates_on_held_out_test(tmp_path) -> None:
+    from entropy_lm.evaluation import evaluate_prepared_test_set
+
+    source = tmp_path / "source"
+    source.mkdir()
+    for index in range(12):
+        (source / f"doc-{index}.txt").write_text(
+            (f"document {index} repeats a small vocabulary for tokenizer training. " * 16),
+            encoding="utf-8",
+        )
+    prepared = tmp_path / "prepared"
+    prepare_corpus(
+        source,
+        prepared,
+        validation_fraction=0.2,
+        test_fraction=0.2,
+        tokenizer_type="bpe",
+        vocab_size=280,
+        seed=23,
+    )
+    metadata = json.loads((prepared / "tokenizer.json").read_text(encoding="utf-8"))
+    checkpoint = tmp_path / "bpe-model.pt"
+    train_language_model(
+        prepared,
+        config=TransformerConfig(
+            vocab_size=metadata["vocab_size"],
+            context_length=8,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+        ),
+        steps=1,
+        batch_size=2,
+        eval_interval=1,
+        eval_batches=1,
+        checkpoint_path=checkpoint,
+    )
+
+    result = evaluate_prepared_test_set(checkpoint, prepared)
+    assert result["split"] == "test"
+    assert result["documents_scored"] == 2
+    assert result["tokens_scored"] > 0
+    assert torch.isfinite(torch.tensor(result["cross_entropy_nats_per_token"]))
+    assert result["perplexity"] > 1.0
+    assert len(result["checkpoint_sha256"]) == 64
