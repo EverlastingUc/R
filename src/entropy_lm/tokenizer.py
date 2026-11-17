@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 import numpy as np
-from numpy.typing import NDArray
 
 BOS_ID = 256
 EOS_ID = 257
