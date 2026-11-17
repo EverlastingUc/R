@@ -222,7 +222,7 @@ def test_api_enforces_session_limit() -> None:
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        first_status, first = request_json(
+        first_status, _first = request_json(
             server, "POST", "/v1/chat", {"message": "first"}
         )
         second_status, second = request_json(
