@@ -343,7 +343,7 @@ class ToolExecutor:
 
         try:
             output = definition.handler(normalized_arguments)
-        except Exception:
+        except Exception:  # noqa: BLE001 - redact all handler failures at the trust boundary.
             return ToolResult(name, "failed", error="Tool execution failed.")
 
         try:
@@ -374,7 +374,7 @@ def _validate_arguments(
     schemas = {item.name: item for item in definition.parameters}
     unexpected = set(arguments) - set(schemas)
     if unexpected:
-        return f"Unexpected tool argument: {sorted(unexpected)[0]}."
+        return f"Unexpected tool argument: {min(unexpected)}."
 
     for parameter in definition.parameters:
         if parameter.name not in arguments:
