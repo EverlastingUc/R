@@ -14,10 +14,10 @@ import torch
 from torch import Tensor
 
 from entropy_lm.bpe_tokenizer import BPETokenizer
+from entropy_lm.chat_data import IGNORE_INDEX
 from entropy_lm.model import CausalLanguageModel, TransformerConfig
 from entropy_lm.tokenizer import ByteTokenizer
 from entropy_lm.training import _learning_rate_scale, _tokenizer_metadata
-from entropy_lm.chat_data import IGNORE_INDEX
 
 
 def _load_chat_dataset(
