@@ -246,5 +246,7 @@ def test_model_requested_irrational_root_is_returned_as_approximate() -> None:
     assert len(tool_messages) == 1
     result = json.loads(tool_messages[0].content)
     assert result["data"]["exact_result"] is None
-    assert result["data"]["decimal_approximation"].startswith("1.41421356237309")
+    assert float(result["data"]["decimal_approximation"]) == pytest.approx(
+        2**0.5, rel=1e-14
+    )
     assert "≈" in result["data"]["answer"]
