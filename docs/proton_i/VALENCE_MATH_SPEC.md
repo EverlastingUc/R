@@ -1,7 +1,7 @@
 # Valence Quarks — Mathematics Engine Specification
 
 **Proton-I stage:** 2  
-**Status:** Scope approved by owner; implementation not started  
+**Status:** VQ-01 safe arithmetic parser implemented and CI-verified; remaining mathematics domains are planned  
 **Purpose:** Make Valence the mathematical problem-solving component of Proton-I.
 
 ## 1. Product contract
@@ -169,7 +169,7 @@ Build and verify the engine in small milestones. Each milestone must have tests 
 
 | Milestone | Scope | Minimum evidence |
 |---|---|---|
-| VQ-01 | Safe tokenizer, parser, expression tree, arithmetic, parentheses, exact fractions | Parser edge cases; exact hand-calculated results; malicious-input rejection |
+| VQ-01 | Safe tokenizer, recursive-descent parser, exact arithmetic, parentheses, rational decimals | *Implemented (partial)* — exact hand-calculated cases, malicious-input rejection, and CI verification; no powers, roots, or symbolic algebra |
 | VQ-02 | Number systems, powers, roots, logarithms, percentages, ratios, number properties | Exact and approximate test matrix; domain/error tests |
 | VQ-03 | Symbolic expressions, simplification, expansion, factorisation | Identity checks and canonical-form tests |
 | VQ-04 | Equations, inequalities, systems, polynomials | Substitution/residual checks; no-solution and infinite-solution cases |

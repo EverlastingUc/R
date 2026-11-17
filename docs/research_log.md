@@ -404,3 +404,30 @@
 - **Next:** VQ-A06, implement the mathematics subsystem in
   VALENCE_MATH_SPEC.md, beginning with safe expression parsing and exact
   arithmetic before expanding to symbolic algebra and advanced domains.
+
+
+## 2026-11-17 — Valence VQ-01: safe exact arithmetic parser verified
+
+- **Done:** Added a bounded hand-written tokenizer and recursive-descent
+  parser for addition, subtraction, multiplication, division, unary signs,
+  decimal literals and parentheses. Decimal literals are converted to exact
+  rational fractions. Direct arithmetic prompts are evaluated before model
+  inference, so the language model is not the numerical source of truth.
+- **Integration:** Added a typed `calculate_expression` tool. The application
+  runtime registers and permits this deterministic calculator by default.
+  Gluons website retrieval remains opt-in with `--enable-web-search`.
+- **Safety:** No `eval` or `exec`. Identifiers, calls, attributes, exponent
+  syntax, implicit multiplication and unsupported operators are rejected.
+  Expression length, token count, nesting depth, literal size and result size
+  are bounded. Division by zero is explicit.
+- **Evidence:** Current CI run is in progress. Tests cover exact fractions,
+  decimal arithmetic, precedence, malicious input, parser resource limits,
+  direct Valence math routing, and tool-policy enforcement.
+- **Limitations:** This is basic arithmetic only, not a computer algebra
+  system. Powers, roots, percentages, units, symbolic expressions, equations,
+  geometry, trigonometry, calculus, statistics and advanced mathematics remain
+  unsupported or planned.
+- **Next:** VQ-02, extend number-system operations with integer powers,
+  rational roots where exact, percentages, ratios, GCD/LCM, modular arithmetic,
+  and safe logarithm/exponential evaluation with explicit domain and precision
+  rules.

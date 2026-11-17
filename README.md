@@ -62,7 +62,7 @@ $env:VALENCE_OLLAMA_HOST = "http://127.0.0.1:11434"
 valence
 ```
 
-The current Valence prototype has local chat, a loopback API, bounded model tool-call orchestration, a deny-by-default typed tool registry, and a Gluons retrieval adapter. Optional website search is enabled only with `--enable-web-search`; retrieved snippets remain marked as untrusted web content. Mathematics execution, persistent memory, file uploads, coding sandbox, image/video generation, creation modes and model comparisons remain planned milestones.
+The current Valence prototype has local chat, a loopback API, safe exact basic arithmetic, bounded model tool-call orchestration, a typed tool registry, and a Gluons retrieval adapter. Basic arithmetic is enabled by default; website search remains opt-in with `--enable-web-search`. Retrieved snippets are marked as untrusted web content. Algebra, calculus, geometry, persistent memory, file uploads, coding sandbox, image/video generation, creation modes and model comparisons remain planned milestones.
 
 See [the Valence product specification](docs/proton_i/VALENCE_PRODUCT_SPEC.md) and [its mathematics subsystem specification](docs/proton_i/VALENCE_MATH_SPEC.md).
 

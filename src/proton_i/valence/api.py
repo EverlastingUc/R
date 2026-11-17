@@ -203,7 +203,17 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
                         "supported" if model_supports_tools else "text_only"
                     ),
                     "web_search": search_status,
-                    "mathematics_engine": "not_integrated",
+                    "mathematics_engine": "basic_arithmetic",
+                    "mathematics_tool": (
+                        "enabled"
+                        if self.server.registry is not None
+                        and "calculate_expression"
+                        in self.server.tool_policy.allowed_tools
+                        and callable(
+                            getattr(self.server.backend, "complete_turn", None)
+                        )
+                        else "not_available"
+                    ),
                     "file_understanding": "not_integrated",
                     "artifact_creation": "not_integrated",
                     "model_comparison": "not_integrated",
@@ -343,8 +353,7 @@ def main() -> int:
     import os
 
     from proton_i.valence.backend import DEFAULT_MODEL, OllamaChatBackend
-    from proton_i.valence.integrations.gluons import register_gluons_tool
-    from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy
+    from proton_i.valence.runtime import build_tool_environment
 
     parser = argparse.ArgumentParser(
         prog="valence-api",
@@ -364,12 +373,7 @@ def main() -> int:
     arguments = parser.parse_args()
 
     backend = OllamaChatBackend(model=arguments.model)
-    registry = None
-    tool_policy = None
-    if arguments.enable_web_search:
-        registry = CapabilityRegistry()
-        register_gluons_tool(registry)
-        tool_policy = ExecutionPolicy(frozenset({"search_web"}))
+    registry, tool_policy = build_tool_environment(arguments.enable_web_search)
     server = create_server(
         backend,
         port=arguments.port,

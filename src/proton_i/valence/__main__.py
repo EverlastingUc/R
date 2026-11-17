@@ -12,8 +12,7 @@ from proton_i.valence.backend import (
     OllamaChatBackend,
 )
 from proton_i.valence.engine import ValenceEngine, ValenceError
-from proton_i.valence.integrations.gluons import register_gluons_tool
-from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy
+from proton_i.valence.runtime import build_tool_environment
 
 
 def main() -> int:
@@ -54,12 +53,7 @@ def main() -> int:
     except ValueError as error:
         parser.error(str(error))
 
-    registry = None
-    tool_policy = None
-    if arguments.enable_web_search:
-        registry = CapabilityRegistry()
-        register_gluons_tool(registry)
-        tool_policy = ExecutionPolicy(frozenset({"search_web"}))
+    registry, tool_policy = build_tool_environment(arguments.enable_web_search)
 
     assistant = ValenceEngine(
         backend,

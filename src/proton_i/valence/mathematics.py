@@ -25,6 +25,7 @@ _MAX_TOKENS = 128
 _MAX_NESTING_DEPTH = 32
 _MAX_NUMBER_DIGITS = 128
 _MAX_RESULT_DIGITS = 384
+_MAX_RESULT_BITS = (_MAX_RESULT_DIGITS * 3322 // 1000) + 1
 
 _TOKEN_PATTERN = re.compile(
     r"\s*(?:(?P<number>(?:\d+(?:\.\d+)?|\.\d+))|(?P<symbol>[()+\-*/]))"
@@ -168,6 +169,13 @@ class _ArithmeticParser:
     @staticmethod
     def _check_result_size(value: Fraction) -> None:
         """Bound integer growth before a user expression consumes excess memory."""
+        if (
+            abs(value.numerator).bit_length() > _MAX_RESULT_BITS
+            or value.denominator.bit_length() > _MAX_RESULT_BITS
+        ):
+            raise MathematicsError(
+                f"Mathematical result exceeds the {_MAX_RESULT_DIGITS}-digit result size limit."
+            )
         numerator_digits = len(str(abs(value.numerator)))
         denominator_digits = len(str(value.denominator))
         if max(numerator_digits, denominator_digits) > _MAX_RESULT_DIGITS:

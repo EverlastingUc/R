@@ -470,3 +470,25 @@ def test_api_reports_registered_search_as_disabled_without_opt_in() -> None:
         server.shutdown()
         thread.join(timeout=2.0)
         server.server_close()
+
+
+
+def test_api_answers_direct_arithmetic_without_model_inference() -> None:
+    backend = RecordingBackend([])
+    server = create_server(backend, port=0)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, response = request_json(
+            server,
+            "POST",
+            "/v1/chat",
+            {"message": "What is 2 + 2?"},
+        )
+        assert status == 200
+        assert response["message"] == "2 + 2 = 4"
+        assert backend.calls == []
+    finally:
+        server.shutdown()
+        thread.join(timeout=2.0)
+        server.server_close()
