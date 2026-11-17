@@ -112,7 +112,6 @@ def _save_checkpoint(
     os.replace(temporary_path, path)
 
 
-
 def _load_prepared_dataset(directory: Path):
     """Load LM06 splits and verify tokenizer fingerprints."""
     manifest_path = directory / "manifest.json"
