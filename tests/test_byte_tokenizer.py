@@ -39,4 +39,7 @@ def test_byte_tokenizer_requires_strings_and_integer_ids() -> None:
 
 def test_byte_tokenizer_batch_encoding() -> None:
     tokenizer = ByteTokenizer()
-    assert tokenizer.encode_batch(["a", "b"], add_eos=True) == [[97, EOS_ID], [98, EOS_ID]]
+    assert tokenizer.encode_batch(["a", "b"], add_eos=True) == [
+        [97, EOS_ID],
+        [98, EOS_ID],
+    ]
