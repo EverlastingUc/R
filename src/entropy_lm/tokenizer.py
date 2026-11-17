@@ -71,6 +71,4 @@ class ByteTokenizer:
         add_eos: bool = False,
     ) -> list[list[int]]:
         """Encode a collection of strings without padding or truncation."""
-        return [
-            self.encode(text, add_bos=add_bos, add_eos=add_eos) for text in texts
-        ]
+        return [self.encode(text, add_bos=add_bos, add_eos=add_eos) for text in texts]
