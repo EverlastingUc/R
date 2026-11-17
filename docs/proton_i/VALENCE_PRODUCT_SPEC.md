@@ -97,14 +97,14 @@ The current prototype supports:
 - Server binding restricted to IPv4 loopback (`127.0.0.1`); browser requests with an Origin header must be same-origin loopback requests.
 - API tests using an actual ephemeral loopback HTTP server and a deterministic fake model backend. These tests need no running Ollama instance or internet connection.
 - Bounded Ollama tool-call orchestration: assistant function requests are parsed as untrusted structured data, checked against the application registry and ExecutionPolicy, executed only by registered handlers, and returned to the model as bounded tool-result messages.
-- Deterministic exact basic arithmetic through a safe tokenizer, immutable expression tree, rational evaluator, and typed `calculate_expression` tool. Basic arithmetic is enabled in the default CLI/API runtime and does not use model-generated numeric answers.
+- Deterministic number-system computation through a safe tokenizer, immutable expression tree, and typed `calculate_expression` tool: exact rational arithmetic, bounded integer powers, integer modulo, absolute value, GCD/LCM, ratios, percentages, exact rational square roots, and explicitly approximate irrational square roots. This calculator is enabled by default; model-generated numeric claims are not the numerical source of truth.
 - Explicit Gluons web-search opt-in for both the CLI and local API using --enable-web-search. Without that flag, the application does not register or expose the search tool.
 
 It does not yet support:
 - Authentication, user accounts, durable sessions, session expiry, or database persistence. API sessions disappear when the server process exits.
 - Public-network hosting, HTTPS termination, cross-origin browser access, or CORS preflight handling. Keep the developer-preview API on loopback.
 - Web search is deliberately opt-in. Start valence or valence-api with --enable-web-search to register Gluons and allow search_web; normal startup exposes no external tools. Search returns bounded snippets and source URLs, not full-page browsing.
-- Mathematics beyond the VQ-01 arithmetic foundation remains incomplete: powers, roots, number properties, symbolic algebra, equations, geometry, trigonometry, calculus, statistics and advanced domains are later sub-milestones.
+- Mathematics beyond the VQ-02 number-system core remains incomplete: logarithms/exponentials, scientific notation, broader number properties, symbolic algebra, equations, geometry, trigonometry, calculus, statistics, proof support and advanced domains are later sub-milestones.
 - Persistent accounts, cloud sync, memory, uploads, or file parsing.
 - The first tool-calling implementation is limited to the local Ollama function-call protocol and application-registered tools. It is not a public plugin marketplace, arbitrary code runner, or cloud model router. No external tools are enabled automatically.
 - Arbitrary code execution, image/video/audio generation, or the creation modes above.
@@ -118,7 +118,7 @@ It does not yet support:
 3. **VQ-A03 — Tool contract:** *implemented* — typed capability registry, deny-by-default policy checks, approval gates, structured tool results, and output limits; no arbitrary code execution.
 4. **VQ-A04 — Gluons integration:** *implemented* — bounded, source-attributed retrieval with untrusted-content labeling and explicit policy permission.
 5. **VQ-A05 — Model tool-call orchestration:** *implemented and CI-verified* — Ollama tool-call parsing, registry/policy enforcement, bounded tool rounds/calls, structured result feedback, and explicit CLI/API opt-in for Gluons. The default remains deny-all.
-6. **VQ-A06 — Mathematical subsystem:** *in progress* — VQ-01 exact arithmetic and immutable AST implemented/CI-verified; VQ-02 through VQ-14 remain ordered work in `VALENCE_MATH_SPEC.md`.
+6. **VQ-A06 — Mathematics subsystem:** *partially implemented* — VQ-01 and the VQ-02 number-system core are CI-verified; logarithms/exponentials and VQ-03 through VQ-14 remain ordered work in `VALENCE_MATH_SPEC.md`.
 7. **VQ-A07 — Conversation persistence:** storage schema, per-user isolation, export/delete, retention.
 8. **VQ-A08 — File workflows:** upload limits, content-type checks, safe parsers, citations to supplied sources.
 9. **VQ-A09 — Frontend chat workspace:** streaming, markdown-safe rendering, conversation controls, accessibility.

@@ -1,7 +1,7 @@
 # Valence Quarks — Mathematics Engine Specification
 
 **Proton-I stage:** 2  
-**Status:** VQ-01 safe exact arithmetic + immutable AST implemented and CI-verified (partial); VQ-02 and later domains are planned  
+**Status:** VQ-01 complete for its defined scope; VQ-02 number-system core implemented and CI-verified (partial); VQ-02 logarithms/exponentials and VQ-03+ domains remain planned  
 **Purpose:** Make Valence the mathematical problem-solving component of Proton-I.
 
 ## 1. Product contract
@@ -169,8 +169,8 @@ Build and verify the engine in small milestones. Each milestone must have tests 
 
 | Milestone | Scope | Minimum evidence |
 |---|---|---|
-| VQ-01 | Safe tokenizer, recursive-descent parser, immutable expression tree, exact arithmetic, parentheses, rational decimals | *Implemented (partial)* — exact hand-calculated cases, AST precedence/immutability checks, malicious-input rejection, and full CI verification; no powers, roots, or symbolic algebra |
-| VQ-02 | Number systems, powers, roots, logarithms, percentages, ratios, number properties | In progress next — bounded integer powers, exact square roots where possible, GCD/LCM, percentages, ratios, and explicit domain/error tests |
+| VQ-01 | Safe tokenizer, recursive-descent parser, immutable expression tree, exact arithmetic, parentheses, rational decimals | *Implemented* — exact Fraction evaluation, immutable AST, prompt routing, domain/resource guards, and CI regression tests |
+| VQ-02 | Number systems, powers, roots, logarithms, percentages, ratios, number properties | *Implemented (core, partial)* — bounded integer powers, integer modulo, abs, GCD/LCM, ratios, percentages, exact rational roots, explicitly approximate irrational square roots, and domain/size tests; logarithms, exponentials, prime factorization, and broader number properties remain planned |
 | VQ-03 | Symbolic expressions, simplification, expansion, factorisation | Identity checks and canonical-form tests |
 | VQ-04 | Equations, inequalities, systems, polynomials | Substitution/residual checks; no-solution and infinite-solution cases |
 | VQ-05 | Functions, graphs' mathematical definitions, sequences, series, precalculus | Domain/range and known-value tests |

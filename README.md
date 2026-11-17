@@ -62,7 +62,7 @@ $env:VALENCE_OLLAMA_HOST = "http://127.0.0.1:11434"
 valence
 ```
 
-The current Valence prototype has local chat, a loopback API, safe exact basic arithmetic, bounded model tool-call orchestration, a typed tool registry, and a Gluons retrieval adapter. Basic arithmetic is enabled by default; website search remains opt-in with `--enable-web-search`. Retrieved snippets are marked as untrusted web content. Algebra, calculus, geometry, persistent memory, file uploads, coding sandbox, image/video generation, creation modes and model comparisons remain planned milestones.
+The current Valence prototype has local chat, a loopback API, a deterministic number-system calculator, bounded model tool-call orchestration, a typed tool registry, and a Gluons retrieval adapter. The calculator supports exact rational arithmetic, bounded integer powers, integer modulo, abs, GCD/LCM, ratios, percentages, exact rational square roots, and approximate irrational square roots. It is enabled by default; Gluons search remains opt-in with `--enable-web-search`. Logarithms, symbolic algebra, equations, geometry, trigonometry, calculus, persistent memory, file uploads, coding sandbox, image/video generation, creation modes and model comparisons remain planned milestones.
 
 See [the Valence product specification](docs/proton_i/VALENCE_PRODUCT_SPEC.md) and [its mathematics subsystem specification](docs/proton_i/VALENCE_MATH_SPEC.md).
 

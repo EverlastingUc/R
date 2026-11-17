@@ -436,3 +436,34 @@
   exact square roots where possible, percentages, ratios, GCD/LCM, modular
   arithmetic, and safe logarithm/exponential evaluation with explicit domain
   and precision rules.
+
+
+## 2026-11-17 — Valence VQ-02: number-system core verified (partial)
+
+- **Done:** Extended the immutable expression AST and recursive-descent parser
+  with right-associative bounded integer powers (`**`), integer modulo (`%`),
+  and an explicit function whitelist: `abs`, `gcd`, `lcm`, `sqrt`,
+  `ratio`, and `percent`.
+- **Exactness:** Rational powers and perfect rational square roots remain
+  exact Fractions. Irrational square roots produce Decimal approximations with
+  an explicit `≈` marker and no exact-result field. Ratios and percentage
+  calculations preserve rational values whenever possible.
+- **Domain rules:** Exponents must be integers with magnitude at most 1,000;
+  modulo and GCD/LCM require exact integers; division/modulo/ratio zero
+  denominators and negative real square roots are rejected. Function arities
+  are validated. Powers, tokens, nesting, literals and results are bounded.
+- **Model integration:** The default `calculate_expression` tool now exposes
+  VQ-02 operations to the local model. Direct math prompts are handled by the
+  deterministic engine before language-model inference. A regression test
+  verifies that model-requested `sqrt(2)` is returned as an explicitly
+  approximate tool result.
+- **Evidence:** GitHub Actions
+  [run 44137079603](https://github.com/EverlastingUc/R/actions/runs/44137079603)
+  passed. Black: 69 files unchanged; Ruff: all checks passed; pytest:
+  **353 passed in 11.54 seconds**.
+- **Limitations:** Logarithms/exponentials, scientific notation, prime
+  factorization, modular inverses, symbolic expressions, equations, complex
+  arithmetic, units, and higher mathematics are not part of this VQ-02 core.
+- **Next:** VQ-02 extension for logarithms, exponentials, scientific notation
+  and additional integer properties, then VQ-03 symbolic algebra with
+  canonical expression forms and identity tests.
