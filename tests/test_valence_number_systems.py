@@ -205,7 +205,6 @@ def test_irrational_square_root_remains_approximate_after_arithmetic() -> None:
     assert float(result.decimal_approximation) == pytest.approx(2.0, rel=1e-14)
 
 
-
 def test_model_requested_irrational_root_is_returned_as_approximate() -> None:
     class MathToolBackend:
         def __init__(self) -> None:
