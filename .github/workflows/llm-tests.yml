@@ -26,4 +26,6 @@ jobs:
           python -m pytest -q \
             tests/test_transformer_model.py \
             tests/test_lm_training.py \
-            tests/test_lm_inference.py
+            tests/test_lm_inference.py \
+            tests/test_lm_chat_training.py \
+            tests/test_lm_chat_inference.py
