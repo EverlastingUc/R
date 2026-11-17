@@ -6,7 +6,11 @@ import json
 import pytest
 
 from entropy_lm.bpe_tokenizer import BPETokenizer
-from entropy_lm.chat_data import IGNORE_INDEX, _encode_conversation, prepare_chat_dataset
+from entropy_lm.chat_data import (
+    IGNORE_INDEX,
+    _encode_conversation,
+    prepare_chat_dataset,
+)
 from entropy_lm.tokenizer import ByteTokenizer
 
 
@@ -23,7 +27,9 @@ def _messages(index: int) -> list[dict[str, str]]:
 def _write_conversations(path, conversations):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        "".join(json.dumps({"messages": messages}) + "\n" for messages in conversations),
+        "".join(
+            json.dumps({"messages": messages}) + "\n" for messages in conversations
+        ),
         encoding="utf-8",
     )
 
@@ -63,13 +69,13 @@ def test_chat_preparation_splits_deduplicates_and_masks_prompt_tokens(tmp_path):
     assert sum(manifest["splits"].values()) == 10
     assert manifest["assistant_target_counts"]["train"] > 0
 
-    assignments = {
-        item["sha256"]: item["split"] for item in manifest["documents"]
-    }
+    assignments = {item["sha256"]: item["split"] for item in manifest["documents"]}
     assert len(assignments) == 10
     assert len({item["sha256"] for item in manifest["documents"]}) == 10
 
-    record = json.loads((output / "train.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    record = json.loads(
+        (output / "train.jsonl").read_text(encoding="utf-8").splitlines()[0]
+    )
     assert record["tokenizer_fingerprint"] == manifest["tokenizer_fingerprint"]
     assert len(record["input_ids"]) == len(record["labels"])
     assert IGNORE_INDEX in record["labels"]
@@ -96,7 +102,10 @@ def test_chat_bpe_metadata_matches_manifest_and_is_loadable(tmp_path):
     ).hexdigest()
     assert metadata == manifest["tokenizer"]
     assert fingerprint == manifest["tokenizer_fingerprint"]
-    assert BPETokenizer.load(output / "tokenizer.json").vocab_size == metadata["vocab_size"]
+    assert (
+        BPETokenizer.load(output / "tokenizer.json").vocab_size
+        == metadata["vocab_size"]
+    )
 
 
 def test_chat_preparation_rejects_conversation_without_assistant(tmp_path):
