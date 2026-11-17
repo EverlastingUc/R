@@ -76,6 +76,8 @@ def main() -> None:
                 "validation_rows": len(dataset.validation_inputs),
                 "test_rows": len(dataset.test_inputs),
                 "features": len(dataset.feature_names),
+                "source_sha256": provenance["source_sha256"],
+                "split_metadata": dataset.split_metadata,
                 "archive": str(archive.relative_to(ROOT)),
                 "metadata": str(metadata.relative_to(ROOT)),
             }
