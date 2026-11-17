@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-import pytest
-
 from proton_i.gluons.search import SearchError, SearchResult
 from proton_i.valence.integrations.gluons import (
     create_gluons_tool,
