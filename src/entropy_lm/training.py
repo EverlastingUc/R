@@ -330,7 +330,7 @@ def main() -> None:
     parser.add_argument("--heads", type=int, default=4)
     parser.add_argument("--layers", type=int, default=4)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
-    parser.add_argument("--warmup-steps", type=int, default=50)
+    parser.add_argument("--warmup-steps", type=int)
     parser.add_argument("--minimum-learning-rate-ratio", type=float, default=0.1)
     parser.add_argument("--early-stopping-patience", type=int)
     parser.add_argument("--tokenizer", choices=("byte", "bpe"), default="bpe")
@@ -366,7 +366,7 @@ def main() -> None:
         tokenizer_type=args.tokenizer,
         bpe_vocab_size=args.bpe_vocab_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
-        warmup_steps=args.warmup_steps,
+        warmup_steps=(\n            min(50, args.steps - 1)\n            if args.warmup_steps is None\n            else args.warmup_steps\n        ),
         minimum_learning_rate_ratio=args.minimum_learning_rate_ratio,
         early_stopping_patience=args.early_stopping_patience,
     )
