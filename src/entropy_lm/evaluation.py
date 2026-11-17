@@ -42,6 +42,8 @@ def _load_test_documents(
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     metadata = json.loads(tokenizer_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict) or not isinstance(metadata, dict):
+        raise ValueError("prepared corpus metadata must contain JSON objects")
     if (
         metadata.get("type") == "byte-bpe"
         and metadata.get("format_version") == 1
