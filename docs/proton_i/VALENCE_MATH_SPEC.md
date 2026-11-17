@@ -1,7 +1,7 @@
 # Valence Quarks — Mathematics Engine Specification
 
 **Proton-I stage:** 2  
-**Status:** VQ-01 safe arithmetic parser implemented and CI-verified; remaining mathematics domains are planned  
+**Status:** VQ-01 safe exact arithmetic + immutable AST implemented and CI-verified (partial); VQ-02 and later domains are planned  
 **Purpose:** Make Valence the mathematical problem-solving component of Proton-I.
 
 ## 1. Product contract
@@ -134,9 +134,9 @@ This is a target layout, not a requirement to create all files as empty placehol
 
 1. **Input validation:** reject empty, malformed, excessively long, or unsupported requests clearly.
 2. **Task recognition:** identify the mathematical domain and requested operation; ask for clarification only when a missing condition changes the answer.
-3. **Parsing:** convert supported text and mathematical notation into a structured expression or problem representation.
+3. **Parsing:** convert supported text and mathematical notation into a structured expression or problem representation. VQ-01 builds immutable `NumberNode`, `UnaryNode`, and `BinaryNode` nodes.
 4. **Planning:** select a documented exact, symbolic, or numerical method.
-5. **Execution:** run a deterministic domain algorithm with explicit precision and resource bounds.
+5. **Execution:** evaluate the expression tree with deterministic algorithms and explicit precision/resource bounds.
 6. **Verification:** substitute solutions back into the original problem, check residuals, compare identities, or use an independent reference where possible.
 7. **Explanation:** return the answer, meaningful intermediate steps, assumptions, domain restrictions, and approximation status.
 
@@ -169,8 +169,8 @@ Build and verify the engine in small milestones. Each milestone must have tests 
 
 | Milestone | Scope | Minimum evidence |
 |---|---|---|
-| VQ-01 | Safe tokenizer, recursive-descent parser, exact arithmetic, parentheses, rational decimals | *Implemented (partial)* — exact hand-calculated cases, malicious-input rejection, and CI verification; no powers, roots, or symbolic algebra |
-| VQ-02 | Number systems, powers, roots, logarithms, percentages, ratios, number properties | Exact and approximate test matrix; domain/error tests |
+| VQ-01 | Safe tokenizer, recursive-descent parser, immutable expression tree, exact arithmetic, parentheses, rational decimals | *Implemented (partial)* — exact hand-calculated cases, AST precedence/immutability checks, malicious-input rejection, and full CI verification; no powers, roots, or symbolic algebra |
+| VQ-02 | Number systems, powers, roots, logarithms, percentages, ratios, number properties | In progress next — bounded integer powers, exact square roots where possible, GCD/LCM, percentages, ratios, and explicit domain/error tests |
 | VQ-03 | Symbolic expressions, simplification, expansion, factorisation | Identity checks and canonical-form tests |
 | VQ-04 | Equations, inequalities, systems, polynomials | Substitution/residual checks; no-solution and infinite-solution cases |
 | VQ-05 | Functions, graphs' mathematical definitions, sequences, series, precalculus | Domain/range and known-value tests |

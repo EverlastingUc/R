@@ -410,9 +410,11 @@
 
 - **Done:** Added a bounded hand-written tokenizer and recursive-descent
   parser for addition, subtraction, multiplication, division, unary signs,
-  decimal literals and parentheses. Decimal literals are converted to exact
-  rational fractions. Direct arithmetic prompts are evaluated before model
-  inference, so the language model is not the numerical source of truth.
+  decimal literals and parentheses. The parser builds immutable
+  `NumberNode`, `UnaryNode`, and `BinaryNode` expression trees; a separate
+  evaluator computes exact rational fractions. Direct arithmetic prompts are
+  evaluated before model inference, so the language model is not the numerical
+  source of truth.
 - **Integration:** Added a typed `calculate_expression` tool. The application
   runtime registers and permits this deterministic calculator by default.
   Gluons website retrieval remains opt-in with `--enable-web-search`.
@@ -420,14 +422,17 @@
   syntax, implicit multiplication and unsupported operators are rejected.
   Expression length, token count, nesting depth, literal size and result size
   are bounded. Division by zero is explicit.
-- **Evidence:** Current CI run is in progress. Tests cover exact fractions,
-  decimal arithmetic, precedence, malicious input, parser resource limits,
-  direct Valence math routing, and tool-policy enforcement.
+- **Evidence:** GitHub Actions
+  [run 44130638998](https://github.com/EverlastingUc/R/actions/runs/44130638998)
+  passed Black and Ruff and the full test suite: **291 passed in 11.55s**.
+  Tests cover exact fractions, decimal arithmetic, precedence, immutable AST
+  nodes, malicious input, parser resource limits, direct Valence math routing,
+  default calculator runtime, API arithmetic and tool-policy enforcement.
 - **Limitations:** This is basic arithmetic only, not a computer algebra
   system. Powers, roots, percentages, units, symbolic expressions, equations,
   geometry, trigonometry, calculus, statistics and advanced mathematics remain
   unsupported or planned.
-- **Next:** VQ-02, extend number-system operations with integer powers,
-  rational roots where exact, percentages, ratios, GCD/LCM, modular arithmetic,
-  and safe logarithm/exponential evaluation with explicit domain and precision
-  rules.
+- **Next:** VQ-02, extend number-system operations with bounded integer powers,
+  exact square roots where possible, percentages, ratios, GCD/LCM, modular
+  arithmetic, and safe logarithm/exponential evaluation with explicit domain
+  and precision rules.
