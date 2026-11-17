@@ -9,7 +9,7 @@ from entropy_lm.training import train_language_model  # noqa: E402
 
 
 def test_training_loop_learns_and_saves_checkpoint(tmp_path) -> None:
-    corpus = ("the quick brown fox jumps over the lazy dog. " * 80)
+    corpus = "the quick brown fox jumps over the lazy dog. " * 80
     checkpoint = tmp_path / "tiny-model.pt"
     history = train_language_model(
         corpus,
@@ -28,7 +28,9 @@ def test_training_loop_learns_and_saves_checkpoint(tmp_path) -> None:
         checkpoint_path=checkpoint,
     )
     assert len(history) == 2
-    assert all(torch.isfinite(torch.tensor(item["validation_loss"])) for item in history)
+    assert all(
+        torch.isfinite(torch.tensor(item["validation_loss"])) for item in history
+    )
     assert checkpoint.is_file()
 
 
