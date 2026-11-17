@@ -283,3 +283,27 @@
 - **Next:** Begin VQ-01 with tests-first implementation of the safe expression
   parser and exact arithmetic, subject to owner approval of the implementation
   milestone.
+
+
+## 2026-11-17 — Proton-I Valence product-direction update and local-chat core
+
+- **Owner-approved scope update:** Valence is the primary general-purpose conversational
+  assistant and task-orchestration layer, with a DesignArena-inspired creation
+  workspace. It is not merely a mathematics engine. Mathematics is one of its
+  capabilities; the previous mathematics specification remains as that subsystem's
+  detailed roadmap. Gluons remains website retrieval only. Sea Quarks remains undefined.
+- **Design reference researched:** DesignArena's current product describes prompt-driven
+  creation across websites, games, images, PDFs, spreadsheets, slides, 3D assets,
+  mobile apps, SVG, UI components and data visualisations, plus model comparison and
+  leaderboards. These are target capability areas, not current Valence features.
+- **Implementation started:** Defined a provider-neutral chat contract, local Ollama
+  backend, bounded multi-turn conversation engine and CLI. The first local model
+  default is Qwen2.5 1.5B Instruct; users install its weights separately. No model
+  files or API keys are committed.
+- **Verification design:** Mocked backend and HTTP tests cover history, reset,
+  bounded context, failure rollback, prompt validation, loopback-only host validation,
+  request payloads and malformed/empty provider responses. No live Ollama model was
+  available in the CI environment; real local inference still requires owner-side
+  installation and execution.
+- **Next:** Run repository CI. Then continue with the API and tool contract before
+  adding retrieval, mathematics execution, memory, files or creation pipelines.

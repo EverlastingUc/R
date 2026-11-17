@@ -10,6 +10,7 @@ dependencies = ["numpy>=2.2.6"]
 
 [project.scripts]
 gluons = "proton_i.gluons.__main__:main"
+valence = "proton_i.valence.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
