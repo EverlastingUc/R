@@ -159,7 +159,7 @@ def _load_prepared_dataset(directory: Path):
 
 
 def train_language_model(
-    text: str,
+    text: str | Path,
     *,
     config: TransformerConfig | None = None,
     steps: int = 1000,
@@ -206,7 +206,14 @@ def train_language_model(
     if not isinstance(seed, int):
         raise TypeError("seed must be an integer")
 
-    split_at = int(len(text) * (1.0 - validation_fraction))
+    if isinstance(text, Path) and text.is_dir():
+        train_tokens, validation_tokens, tokenizer, corpus_sha256 = _load_prepared_dataset(text)
+    else:
+        if isinstance(text, Path):
+            text = text.read_text(encoding="utf-8")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("training text must be a non-empty string")
+        split_at = int(len(text) * (1.0 - validation_fraction))
     train_text = text[:split_at]
     validation_text = text[split_at:]
     if tokenizer_type == "byte":
