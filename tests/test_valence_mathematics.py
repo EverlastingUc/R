@@ -7,7 +7,7 @@ from fractions import Fraction
 
 import pytest
 
-from proton_i.valence.backend import ChatMessage
+from proton_i.valence.backend import ChatMessage, ChatTurn, ModelToolCall
 from proton_i.valence.engine import ValenceEngine, ValenceError
 from proton_i.valence.expressions import BinaryNode, NumberNode, UnaryNode
 from proton_i.valence.integrations.mathematics import (
@@ -15,6 +15,7 @@ from proton_i.valence.integrations.mathematics import (
     register_mathematics_tool,
 )
 from proton_i.valence.mathematics import MathematicsEngine, MathematicsError
+from proton_i.valence.runtime import build_tool_environment
 from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy, ToolExecutor
 
 
@@ -239,3 +240,50 @@ def test_explicit_parse_and_evaluate_are_separate_operations() -> None:
     assert isinstance(tree, BinaryNode)
     assert engine._evaluate_node(tree) == Fraction(3)
     assert engine.evaluate("(1/3 + 1/6) * 6").value == Fraction(3)
+
+
+
+def test_model_requested_calculation_runs_through_default_tool_environment() -> None:
+    class CalculatorBackend:
+        def __init__(self) -> None:
+            self.turns = [
+                ChatTurn(
+                    "",
+                    (
+                        ModelToolCall(
+                            "calculate_expression",
+                            {"expression": "1/3 + 1/6"},
+                        ),
+                    ),
+                ),
+                ChatTurn("The exact result is 1/2."),
+            ]
+            self.calls: list[tuple[list[ChatMessage], list[dict[str, object]]]] = []
+
+        def complete(self, _messages: Sequence[ChatMessage]) -> str:
+            raise AssertionError("tool-enabled backend should use complete_turn")
+
+        def complete_turn(self, messages, tools) -> ChatTurn:
+            self.calls.append((list(messages), list(tools)))
+            return self.turns.pop(0)
+
+    backend = CalculatorBackend()
+    registry, policy = build_tool_environment()
+    assistant = ValenceEngine(
+        backend,
+        registry=registry,
+        tool_policy=policy,
+    )
+
+    answer = assistant.ask(
+        "Please calculate one third plus one sixth and give the exact result."
+    )
+
+    assert answer == "The exact result is 1/2."
+    assert backend.calls[0][1][0]["name"] == "calculate_expression"
+    tool_messages = [
+        message for message in backend.calls[1][0] if message.role == "tool"
+    ]
+    assert len(tool_messages) == 1
+    assert '"exact_result":"1/2"' in tool_messages[0].content
+    assert '"decimal_approximation":"0.5"' in tool_messages[0].content
