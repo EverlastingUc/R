@@ -118,10 +118,14 @@ def _load_prepared_dataset(directory: Path):
     manifest_path = directory / "manifest.json"
     metadata_path = directory / "tokenizer.json"
     if not manifest_path.is_file() or not metadata_path.is_file():
-        raise FileNotFoundError("prepared corpus requires manifest.json and tokenizer.json")
+        raise FileNotFoundError(
+            "prepared corpus requires manifest.json and tokenizer.json"
+        )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    fingerprint = hashlib.sha256(json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    fingerprint = hashlib.sha256(
+        json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
     if manifest.get("tokenizer_fingerprint") != fingerprint:
         raise ValueError("prepared corpus tokenizer fingerprint mismatch")
     if metadata.get("type") == "utf8-byte":
@@ -139,23 +143,47 @@ def _load_prepared_dataset(directory: Path):
     def load_split(name: str) -> Tensor:
         split_path = directory / (name + ".jsonl")
         if not split_path.is_file():
-            raise FileNotFoundError("prepared corpus is missing " + split_path.name)
+            raise FileNotFoundError(
+                "prepared corpus is missing " + split_path.name
+            )
         values: list[int] = []
-        for line_number, line in enumerate(split_path.read_text(encoding="utf-8").splitlines(), 1):
+        for line_number, line in enumerate(
+            split_path.read_text(encoding="utf-8").splitlines(), 1
+        ):
             try:
                 record = json.loads(line)
             except json.JSONDecodeError as error:
-                raise ValueError("invalid JSONL record at line " + str(line_number)) from error
-            if not isinstance(record, dict) or record.get("tokenizer_fingerprint") != fingerprint:
+                raise ValueError(
+                    "invalid JSONL record at line " + str(line_number)
+                ) from error
+            if (
+                not isinstance(record, dict)
+                or record.get("tokenizer_fingerprint") != fingerprint
+            ):
                 raise ValueError("prepared dataset record has invalid metadata")
             ids = record.get("token_ids")
-            if not isinstance(ids, list) or not ids or any(not isinstance(x, int) or isinstance(x, bool) or x < 0 or x >= tokenizer.vocab_size for x in ids):
+            if (
+                not isinstance(ids, list)
+                or not ids
+                or any(
+                    not isinstance(x, int)
+                    or isinstance(x, bool)
+                    or x < 0
+                    or x >= tokenizer.vocab_size
+                    for x in ids
+                )
+            ):
                 raise ValueError("prepared dataset contains invalid token IDs")
             values.extend(ids)
             values.append(tokenizer.eos_id)
         return torch.tensor(values, dtype=torch.long)
 
-    return load_split("train"), load_split("validation"), tokenizer, hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    return (
+        load_split("train"),
+        load_split("validation"),
+        tokenizer,
+        hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    )
 
 
 def train_language_model(
@@ -207,7 +235,9 @@ def train_language_model(
         raise TypeError("seed must be an integer")
 
     if isinstance(text, Path) and text.is_dir():
-        train_tokens, validation_tokens, tokenizer, corpus_sha256 = _load_prepared_dataset(text)
+        train_tokens, validation_tokens, tokenizer, corpus_sha256 = (
+            _load_prepared_dataset(text)
+        )
     else:
         if isinstance(text, Path):
             text = text.read_text(encoding="utf-8")
@@ -227,7 +257,8 @@ def train_language_model(
             tokenizer.encode(train_text, add_bos=True, add_eos=True), dtype=torch.long
         )
         validation_tokens = torch.tensor(
-            tokenizer.encode(validation_text, add_bos=True, add_eos=True), dtype=torch.long
+            tokenizer.encode(validation_text, add_bos=True, add_eos=True),
+            dtype=torch.long,
         )
     architecture = config or TransformerConfig(vocab_size=tokenizer.vocab_size)
     if architecture.vocab_size != tokenizer.vocab_size:
@@ -394,7 +425,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.corpus.is_dir():
-        metadata = json.loads((args.corpus / "tokenizer.json").read_text(encoding="utf-8"))
+        metadata = json.loads(
+            (args.corpus / "tokenizer.json").read_text(encoding="utf-8")
+        )
         vocab_size = metadata["vocab_size"]
     else:
         corpus_text = args.corpus.read_text(encoding="utf-8")
