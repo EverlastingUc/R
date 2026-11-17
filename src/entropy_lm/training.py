@@ -110,6 +110,8 @@ def train_language_model(
         raise TypeError("seed must be an integer")
 
     architecture = config or TransformerConfig()
+    if architecture.vocab_size != ByteTokenizer.vocab_size:
+        raise ValueError("model vocab_size must match the byte tokenizer")
     train_tokens, validation_tokens = _encode_and_split(
         text, validation_fraction, architecture.context_length
     )
