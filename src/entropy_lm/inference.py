@@ -22,7 +22,7 @@ def load_model_checkpoint(
     architecture = checkpoint.get("architecture")
     state = checkpoint.get("model_state")
     if not isinstance(architecture, dict) or not isinstance(state, dict):
-        raise ValueError("checkpoint is missing architecture or model weights")
+        raise TypeError("checkpoint architecture and model weights must be mappings")
     tokenizer_metadata = checkpoint.get("tokenizer")
     if tokenizer_metadata != {
         "type": "utf8-byte",
