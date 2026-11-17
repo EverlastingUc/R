@@ -75,7 +75,7 @@ def test_health_and_capabilities_endpoints(running_api) -> None:
     status, capabilities = request_json(server, "GET", "/v1/capabilities")
     assert status == 200
     assert capabilities["local_chat"] == "supported"
-    assert capabilities["web_search"] == "not_enabled"
+    assert capabilities["web_search"] == "not_integrated"
     assert capabilities["model_tool_calling"] == "text_only"
 
 
