@@ -288,9 +288,6 @@ def train_language_model(
     train_generator = torch.Generator(device="cpu").manual_seed(seed + 1)
     training_eval_generator = torch.Generator(device="cpu").manual_seed(seed + 2)
     validation_generator = torch.Generator(device="cpu").manual_seed(seed + 3)
-    train_generator = torch.Generator(device="cpu").manual_seed(seed + 1)
-    training_eval_generator = torch.Generator(device="cpu").manual_seed(seed + 2)
-    validation_generator = torch.Generator(device="cpu").manual_seed(seed + 3)
     history: list[dict[str, float | int]] = []
     best_validation_loss = math.inf
     evaluations_without_improvement = 0
