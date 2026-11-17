@@ -124,6 +124,16 @@ def _load_prepared_dataset(directory: Path):
         )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if (
+        metadata.get("type") == "byte-bpe"
+        and metadata.get("format_version") == 1
+        and "vocab_size" not in metadata
+    ):
+        legacy_merges = metadata.get("merges")
+        if not isinstance(legacy_merges, list):
+            raise ValueError("prepared BPE merge table is malformed")
+        legacy_tokenizer = BPETokenizer(tuple(tuple(pair) for pair in legacy_merges))
+        metadata = _tokenizer_metadata(legacy_tokenizer)
     fingerprint = hashlib.sha256(
         json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
