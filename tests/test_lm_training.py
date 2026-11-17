@@ -26,12 +26,20 @@ def test_training_loop_learns_and_saves_checkpoint(tmp_path) -> None:
         eval_batches=1,
         seed=5,
         checkpoint_path=checkpoint,
+        warmup_steps=1,
+        minimum_learning_rate_ratio=0.2,
+        gradient_accumulation_steps=2,
     )
     assert len(history) == 2
     assert all(
         torch.isfinite(torch.tensor(item["validation_loss"])) for item in history
     )
     assert checkpoint.is_file()
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    assert payload["training"]["effective_batch_size"] == 4
+    assert payload["training"]["gradient_accumulation_steps"] == 2
+    assert payload["training"]["best_validation_loss"] is not None
+    assert "scheduler_state" in payload
 
 
 def test_training_rejects_too_short_corpus() -> None:
@@ -46,3 +54,12 @@ def test_training_rejects_too_short_corpus() -> None:
             ),
             steps=1,
         )
+
+
+
+def test_training_rejects_invalid_accumulation_and_warmup() -> None:
+    corpus = "training and validation text. " * 20
+    with pytest.raises(ValueError, match="gradient_accumulation_steps"):
+        train_language_model(corpus, gradient_accumulation_steps=0)
+    with pytest.raises(ValueError, match="warmup_steps"):
+        train_language_model(corpus, steps=2, warmup_steps=2)
