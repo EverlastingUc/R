@@ -69,11 +69,14 @@ def _load_test_documents(
         try:
             record = json.loads(line)
         except json.JSONDecodeError as error:
-            raise ValueError(f"invalid test JSONL record at line {line_number}") from error
+            raise ValueError(
+                f"invalid test JSONL record at line {line_number}"
+            ) from error
         ids = record.get("token_ids") if isinstance(record, dict) else None
-        if not isinstance(record, dict) or record.get(
-            "tokenizer_fingerprint"
-        ) != fingerprint:
+        if (
+            not isinstance(record, dict)
+            or record.get("tokenizer_fingerprint") != fingerprint
+        ):
             raise ValueError("test record tokenizer fingerprint mismatch")
         if (
             not isinstance(ids, list)
