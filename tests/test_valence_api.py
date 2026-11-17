@@ -327,6 +327,7 @@ def test_api_backend_failure_returns_sanitized_error() -> None:
         thread.join(timeout=2.0)
         server.server_close()
 
+
 def test_api_passes_explicit_tool_registry_and_policy_to_new_sessions() -> None:
     registry = CapabilityRegistry()
     registry.register(
