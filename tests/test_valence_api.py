@@ -472,7 +472,6 @@ def test_api_reports_registered_search_as_disabled_without_opt_in() -> None:
         server.server_close()
 
 
-
 def test_api_answers_direct_arithmetic_without_model_inference() -> None:
     backend = RecordingBackend([])
     server = create_server(backend, port=0)
