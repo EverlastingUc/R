@@ -1,0 +1,29 @@
+name: Optional PyTorch language-model tests
+
+on:
+  push:
+    branches: [cp01-foundations]
+  pull_request:
+    branches: [cp01-foundations]
+
+jobs:
+  pytorch-language-model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install CPU PyTorch
+        run: python -m pip install "torch>=2.6" --index-url https://download.pytorch.org/whl/cpu
+      - name: Install project and test tools
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install -e .
+      - name: Test Transformer, training, and inference
+        run: |
+          python -m pytest -q \
+            tests/test_transformer_model.py \
+            tests/test_lm_training.py \
+            tests/test_lm_inference.py
