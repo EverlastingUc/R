@@ -4,9 +4,9 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from entropy_lm.inference import generate_text, load_model_checkpoint  # noqa: E402
-from entropy_lm.model import TransformerConfig  # noqa: E402
-from entropy_lm.training import train_language_model  # noqa: E402
+from entropy_lm.inference import generate_text, load_model_checkpoint
+from entropy_lm.model import TransformerConfig
+from entropy_lm.training import train_language_model
 
 
 def test_checkpoint_loads_and_generates_text(tmp_path) -> None:
