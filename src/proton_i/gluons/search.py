@@ -13,13 +13,24 @@ from urllib.error import URLError
 from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
-
 _SEARCH_ENDPOINT = "https://html.duckduckgo.com/html/"
 _USER_AGENT = "Proton-I-Gluons/0.1 (+https://github.com/EverlastingUc/R)"
 _MAX_RESPONSE_BYTES = 2_000_000
 _VOID_TAGS = {
-    "area", "base", "br", "col", "embed", "hr", "img", "input",
-    "link", "meta", "param", "source", "track", "wbr",
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
 }
 
 

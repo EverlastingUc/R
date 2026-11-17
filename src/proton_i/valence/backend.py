@@ -58,7 +58,9 @@ class OllamaChatBackend:
     ) -> None:
         """Configure a local model, loopback host, and positive timeout."""
         if not isinstance(model, str) or not model.strip() or len(model) > 120:
-            raise ValueError("model must be a non-empty string of at most 120 characters")
+            raise ValueError(
+                "model must be a non-empty string of at most 120 characters"
+            )
         if isinstance(timeout, bool):
             raise ValueError("timeout must be a positive finite number")
         try:
@@ -111,7 +113,9 @@ class OllamaChatBackend:
     def complete(self, messages: Sequence[ChatMessage]) -> str:
         """Send bounded conversation messages and return assistant text."""
         if not messages or len(messages) > _MAX_MESSAGES:
-            raise ValueError(f"messages must contain between 1 and {_MAX_MESSAGES} items")
+            raise ValueError(
+                f"messages must contain between 1 and {_MAX_MESSAGES} items"
+            )
 
         payload_messages: list[dict[str, str]] = []
         for message in messages:
@@ -141,22 +145,30 @@ class OllamaChatBackend:
             with urlopen(request, timeout=self.timeout) as response:
                 response_body = response.read(_MAX_RESPONSE_BYTES + 1)
         except HTTPError as error:
-            raise BackendError(f"Local model server returned HTTP {error.code}.") from error
+            raise BackendError(
+                f"Local model server returned HTTP {error.code}."
+            ) from error
         except (URLError, TimeoutError, OSError, ValueError) as error:
             raise BackendError(
                 "Could not reach the local model server. Check that Ollama is running."
             ) from error
 
         if len(response_body) > _MAX_RESPONSE_BYTES:
-            raise BackendError("The local model response exceeded the 4 MB safety limit.")
+            raise BackendError(
+                "The local model response exceeded the 4 MB safety limit."
+            )
 
         try:
             result = json.loads(response_body.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            raise BackendError("The local model server returned invalid JSON.") from error
+            raise BackendError(
+                "The local model server returned invalid JSON."
+            ) from error
 
         if not isinstance(result, Mapping):
-            raise BackendError("The local model server returned an unexpected response.")
+            raise BackendError(
+                "The local model server returned an unexpected response."
+            )
         message_data = result.get("message")
         if not isinstance(message_data, Mapping):
             raise BackendError("The local model response did not contain a message.")

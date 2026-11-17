@@ -68,9 +68,7 @@ class GluonsAssistant:
 def _short_summary(query: str, results: Sequence[SearchResult]) -> str:
     """Choose a concise relevant sentence from returned search snippets."""
     query_terms = {
-        term.lower()
-        for term in re.findall(r"[a-zA-Z0-9+#.-]+", query)
-        if len(term) > 1
+        term.lower() for term in re.findall(r"[a-zA-Z0-9+#.-]+", query) if len(term) > 1
     }
     candidates: list[tuple[int, int, str]] = []
     order = 0

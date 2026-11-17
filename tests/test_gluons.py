@@ -15,7 +15,6 @@ from proton_i.gluons.search import (
     _DuckDuckGoHTMLParser,
 )
 
-
 SAMPLE_HTML = """
 <div class="result results_links">
   <div class="result__title">
