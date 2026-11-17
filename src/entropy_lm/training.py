@@ -393,17 +393,21 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
-    corpus_text = args.corpus.read_text(encoding="utf-8")
-    if args.tokenizer == "bpe":
-        split_at = int(len(corpus_text) * 0.9)
-        tokenizer = BPETokenizer.train(
-            [corpus_text[:split_at]], vocab_size=args.bpe_vocab_size
-        )
-        vocab_size = tokenizer.vocab_size
+    if args.corpus.is_dir():
+        metadata = json.loads((args.corpus / "tokenizer.json").read_text(encoding="utf-8"))
+        vocab_size = metadata["vocab_size"]
     else:
-        vocab_size = ByteTokenizer.vocab_size
+        corpus_text = args.corpus.read_text(encoding="utf-8")
+        if args.tokenizer == "bpe":
+            split_at = int(len(corpus_text) * 0.9)
+            tokenizer = BPETokenizer.train(
+                [corpus_text[:split_at]], vocab_size=args.bpe_vocab_size
+            )
+            vocab_size = tokenizer.vocab_size
+        else:
+            vocab_size = ByteTokenizer.vocab_size
     history = train_language_model(
-        corpus_text,
+        args.corpus,
         config=TransformerConfig(
             vocab_size=vocab_size,
             context_length=args.context_length,
