@@ -21,7 +21,7 @@ class FakeBackend:
     """Deterministic backend used to test conversation orchestration."""
 
     def __init__(self, replies: list[str] | None = None) -> None:
-        self.replies = list(replies or ["Hello from Valence."])
+        self.replies = list(["Hello from Valence."] if replies is None else replies)
         self.calls: list[list[ChatMessage]] = []
 
     def complete(self, messages: list[ChatMessage]) -> str:
