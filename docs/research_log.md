@@ -467,3 +467,13 @@
 - **Next:** VQ-02 extension for logarithms, exponentials, scientific notation
   and additional integer properties, then VQ-03 symbolic algebra with
   canonical expression forms and identity tests.
+
+
+## 2026-11-18 — Entropy CP21: UCI dataset engineering (in progress)
+
+- **Approval:** The owner approved Option B: UCI Iris for classification and UCI Bike Sharing for regression.
+- **Implementation:** Added NumPy-only loaders, bounded exact-host UCI HTTPS downloads, safe ZIP member parsing, source SHA-256 provenance, deterministic stratified Iris splits, chronological whole-day Bike Sharing splits, train-only standardisation and non-overwriting NPZ/JSON persistence.
+- **Leakage control:** The Bike Sharing model feature matrix excludes casual and registered because they add up to the cnt target. It also excludes the instant identifier and uses dteday only to form chronological splits.
+- **Tests:** Added seven deterministic fixture tests for parsing, split reproducibility, class representation, chronological separation, leakage checks, finite scaling, persistence and the UCI download-host restriction. The final branch CI result is pending.
+- **Data status:** The official archives have not yet been downloaded in this execution environment. No external rows or prepared data have been committed; exact source checksums and real split row counts remain unmeasured.
+- **Next:** Run the pipeline with network access, record the measured output metadata and complete full CI before marking CP21 done or beginning CP22.

@@ -83,6 +83,12 @@ python -m pytest -q
 
 Entropy's small research networks are not represented as general-purpose language models. Valence currently uses an independently installed local language model through Ollama.
 
+## CP21 — Real dataset preparation
+
+CP21 adds reproducible preparation for UCI Iris classification and hourly Bike Sharing regression. Raw archives are stored under the git-ignored data/raw/ directory; prepared arrays and provenance sidecars are stored under data/processed/.
+
+Run python -m pytest -q tests/test_datasets.py for the deterministic fixture tests, then python -m experiments.cp21_dataset_pipeline to download and prepare the approved datasets. Iris uses a seeded stratified split; Bike Sharing uses chronological whole-calendar-day splits. Scaling statistics are fitted on training rows only. The Bike Sharing casual and registered columns are excluded because they sum directly to the cnt target. See docs/dataset_manifest_cp21.md and docs/checkpoints/cp21.md for licence, attribution, provenance and limitations.
+
 ## Local Valence API (developer preview)
 
 Start the local HTTP service in a second PowerShell window:

@@ -1,0 +1,19 @@
+{
+  "name": "cp21_uci_dataset_engineering",
+  "seed": 42,
+  "split": {
+    "train_fraction": 0.70,
+    "validation_fraction": 0.15,
+    "test_fraction": 0.15
+  },
+  "datasets": {
+    "iris": {
+      "raw_path": "data/raw/iris.zip",
+      "processed_path": "data/processed/iris.npz"
+    },
+    "bike_sharing_hourly": {
+      "raw_path": "data/raw/bike-sharing-dataset.zip",
+      "processed_path": "data/processed/bike_sharing_hourly.npz"
+    }
+  }
+}
