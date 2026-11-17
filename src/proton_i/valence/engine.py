@@ -129,7 +129,9 @@ class ValenceEngine:
         if mathematics_result is not None:
             cleaned_response = mathematics_result.answer
             if len(cleaned_response) > MAX_OUTPUT_CHARS:
-                raise ValenceError("The mathematical response exceeded the output size limit.")
+                raise ValenceError(
+                    "The mathematical response exceeded the output size limit."
+                )
             assistant_message = ChatMessage("assistant", cleaned_response)
             self._history = self._trim_history(
                 [*previous_messages, user_message, assistant_message]

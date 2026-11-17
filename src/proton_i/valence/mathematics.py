@@ -249,7 +249,9 @@ class MathematicsEngine:
             position = match.end()
 
             if len(tokens) > _MAX_TOKENS:
-                raise MathematicsError(f"Expressions are limited to {_MAX_TOKENS} tokens.")
+                raise MathematicsError(
+                    f"Expressions are limited to {_MAX_TOKENS} tokens."
+                )
 
         return tokens
 
