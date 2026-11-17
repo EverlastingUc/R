@@ -65,7 +65,28 @@ class CausalLanguageModel(nn.Module):
         )
         self.final_norm = nn.LayerNorm(config.embedding_dim)
         self.output = nn.Linear(config.embedding_dim, config.vocab_size, bias=False)
+        self._initialize_parameters()
         self.output.weight = self.token_embedding.weight
+
+    def _initialize_parameters(self) -> None:
+        """Initialize cloned Transformer blocks independently."""
+        nn.init.normal_(self.token_embedding.weight, mean=0.0, std=0.02)
+        nn.init.normal_(self.position_embedding.weight, mean=0.0, std=0.02)
+        for block in self.blocks.layers:
+            for module in block.modules():
+                if isinstance(module, nn.Linear):
+                    nn.init.xavier_uniform_(module.weight)
+                    if module.bias is not None:
+                        nn.init.zeros_(module.bias)
+                elif isinstance(module, nn.MultiheadAttention):
+                    nn.init.xavier_uniform_(module.in_proj_weight)
+                    if module.in_proj_bias is not None:
+                        nn.init.zeros_(module.in_proj_bias)
+                elif isinstance(module, nn.LayerNorm):
+                    nn.init.ones_(module.weight)
+                    nn.init.zeros_(module.bias)
+        nn.init.ones_(self.final_norm.weight)
+        nn.init.zeros_(self.final_norm.bias)
 
     def forward(self, input_ids: Tensor, targets: Tensor | None = None) -> (
         tuple[Tensor, Tensor | None]
@@ -106,6 +127,10 @@ class CausalLanguageModel(nn.Module):
                 raise ValueError("targets must have the same shape as input_ids")
             if targets.dtype != torch.long:
                 raise TypeError("targets must use torch.long token IDs")
+            if torch.any(targets < 0) or torch.any(
+                targets >= self.config.vocab_size
+            ):
+                raise ValueError("targets contain an out-of-vocabulary token")
             loss = F.cross_entropy(
                 logits.reshape(-1, self.config.vocab_size), targets.reshape(-1)
             )
