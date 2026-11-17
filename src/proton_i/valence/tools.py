@@ -59,7 +59,7 @@ class ToolParameter:
             "number",
             "boolean",
             "object",
-            "array"
+            "array",
         }:
             raise ValueError("parameter value_type is not supported")
         if not isinstance(self.description, str) or not self.description.strip():
@@ -104,7 +104,7 @@ class ToolParameter:
         if self.max_length is not None and self.value_type not in {
             "string",
             "array",
-            "object"
+            "object",
         }:
             raise ValueError("max_length requires a string, array, or object parameter")
 
