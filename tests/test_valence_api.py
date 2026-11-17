@@ -269,7 +269,6 @@ def test_api_rejects_loopback_origin_from_different_port(running_api) -> None:
     assert "same-origin" in response["error"]
 
 
-
 def test_api_sessions_keep_conversation_history_isolated() -> None:
     backend = RecordingBackend(["A reply", "B reply", "A follow-up"])
     server = create_server(backend, port=0, max_sessions=3)
@@ -300,8 +299,7 @@ def test_api_sessions_keep_conversation_history_isolated() -> None:
             ChatMessage("user", "First session follow-up"),
         ]
         assert all(
-            message.content != "Second session question"
-            for message in backend.calls[2]
+            message.content != "Second session question" for message in backend.calls[2]
         )
     finally:
         server.shutdown()
