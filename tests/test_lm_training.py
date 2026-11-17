@@ -225,7 +225,10 @@ def test_prepared_bpe_corpus_trains_and_evaluates_on_held_out_test(tmp_path) -> 
     source.mkdir()
     for index in range(12):
         (source / f"doc-{index}.txt").write_text(
-            (f"document {index} repeats a small vocabulary for tokenizer training. " * 16),
+            (
+                f"document {index} repeats a small vocabulary for tokenizer training. "
+                * 16
+            ),
             encoding="utf-8",
         )
     prepared = tmp_path / "prepared"
