@@ -84,3 +84,26 @@ Run these commands from the repository root:
 The pipeline's actual source archive checksums and exact Bike Sharing split
 row counts must be captured by a successful run with network access. The
 repository report does not claim those run-time values before they exist.
+
+
+## Verified run — 2026-11-18
+
+The pipeline was executed against the official source archives in GitHub
+Actions run
+https://github.com/EverlastingUc/R/actions/runs/44166668640.
+
+- Iris split sizes: 105 train / 23 validation / 22 test. With seed 42,
+  class counts are 35/35/35 (train), 8/8/7 (validation), and 7/7/8 (test).
+- Iris archive SHA-256:
+  d11fe30213d36434a0879aab7cb00ce3c812eb7ba2495874438abff7b7b762e9
+- Bike hourly split sizes: 12,139 train / 2,616 validation / 2,624 test.
+- Bike date ranges: train 2011-01-01 to 2012-05-25; validation
+  2012-05-26 to 2012-09-11; test 2012-09-12 to 2012-12-31.
+- Bike archive SHA-256:
+  b70182d0d0508e9abbb79306ce5c0cec34869000f8220175ac83d11dbe845401
+- Full repository CI: Black passed, Ruff passed, 360 tests passed, and
+  the live-source UCI pipeline completed successfully.
+
+The exact run's generated NPZ arrays and JSON provenance sidecars were
+created under the runner's ignored data/ directory. They are reproducible
+through the command above but were not committed as third-party data.

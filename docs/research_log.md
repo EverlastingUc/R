@@ -469,11 +469,14 @@
   canonical expression forms and identity tests.
 
 
-## 2026-11-18 — Entropy CP21: UCI dataset engineering (in progress)
+## 2026-11-18 — Entropy CP21: UCI dataset engineering verified
 
-- **Approval:** The owner approved Option B: UCI Iris for classification and UCI Bike Sharing for regression.
-- **Implementation:** Added NumPy-only loaders, bounded exact-host UCI HTTPS downloads, safe ZIP member parsing, source SHA-256 provenance, deterministic stratified Iris splits, chronological whole-day Bike Sharing splits, train-only standardisation and non-overwriting NPZ/JSON persistence.
-- **Leakage control:** The Bike Sharing model feature matrix excludes casual and registered because they add up to the cnt target. It also excludes the instant identifier and uses dteday only to form chronological splits.
-- **Tests:** Added seven deterministic fixture tests for parsing, split reproducibility, class representation, chronological separation, leakage checks, finite scaling, persistence and the UCI download-host restriction. The final branch CI result is pending.
-- **Data status:** The official archives have not yet been downloaded in this execution environment. No external rows or prepared data have been committed; exact source checksums and real split row counts remain unmeasured.
-- **Next:** Run the pipeline with network access, record the measured output metadata and complete full CI before marking CP21 done or beginning CP22.
+- **Approval:** The owner approved Option B: UCI Iris classification and UCI Bike Sharing hourly regression.
+- **Implementation:** Added NumPy-only UCI HTTPS acquisition, bounded safe ZIP parsing, strict source validation, SHA-256 provenance, seeded stratified Iris splitting, chronological whole-day Bike Sharing splitting, train-only scaling and non-overwriting NPZ/JSON persistence.
+- **Leakage control:** Bike model inputs exclude casual and registered (which sum to cnt), the instant row identifier, and dteday (used only for chronological split boundaries).
+- **Measured Iris data:** 150 rows; 105/23/22 train/validation/test; four features; seed 42. Per-class counts are 35/35/35 train, 8/8/7 validation and 7/7/8 test. Source archive SHA-256: d11fe30213d36434a0879aab7cb00ce3c812eb7ba2495874438abff7b7b762e9.
+- **Measured Bike data:** 17,379 hourly rows; 12,139/2,616/2,624 train/validation/test; 12 model features. Date ranges: train 2011-01-01 to 2012-05-25, validation 2012-05-26 to 2012-09-11, test 2012-09-12 to 2012-12-31. Source archive SHA-256: b70182d0d0508e9abbb79306ce5c0cec34869000f8220175ac83d11dbe845401.
+- **Evidence:** GitHub Actions run 44166668640 passed Black, Ruff, the full repository suite (360 passed in 10.23 seconds) and the actual UCI source download/preparation script. The per-run sidecars record licence, attribution, source/config hashes, splits and shapes.
+- **Storage:** Raw archives and prepared numerical arrays were generated under the git-ignored data/ directory; no data rows or trained weights were committed.
+- **Limitations:** Iris is a small teaching classification dataset; Bike Sharing is historical, single-city data. CP21 only establishes a trustworthy dataset foundation; no classification/regression model has been trained.
+- **Next:** CP22, train and compare a classification model using Iris training/validation splits only. Do not touch its test split for tuning. Wait for owner confirmation before beginning CP22.

@@ -510,7 +510,7 @@ project-root/
 | 06–10 | Phase 02 — Mathematical Foundations | ✅ done | docs/checkpoints/cp10.md | 2026-11-08 |
 | 11–15 | Phase 03 — NN Implementation | ✅ done | docs/checkpoints/cp15.md | 2026-11-08 |
 | 16–20 | Phase 04 — Training Engine | ✅ done | docs/checkpoints/cp20.md | 2026-11-08 |
-| 21–25 | Phase 05 — First Trained Models | CP21 in progress (Option B approved) | docs/checkpoints/cp21.md | 2026-11-18 |
+| 21–25 | Phase 05 — First Trained Models | CP21 done; CP22–25 not started | docs/checkpoints/cp21.md | 2026-11-18 |
 | 26–30 | Phase 06 — Deep Learning | ☐ | | |
 | 31–35 | Phase 07 — Transformer Architecture | ☐ | | |
 | 36–40 | Phase 08 — Language Model | ☐ | | |
