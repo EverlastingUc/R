@@ -45,8 +45,9 @@ class BPETokenizer:
             available += 1
 
     @classmethod
-    def train(cls, texts: Iterable[str], *, vocab_size: int = 1000,
-              min_frequency: int = 2) -> "BPETokenizer":
+    def train(
+        cls, texts: Iterable[str], *, vocab_size: int = 1000, min_frequency: int = 2
+    ) -> "BPETokenizer":
         """Learn up to vocab_size tokens from UTF-8 text using pair frequency."""
         if vocab_size < BASE_VOCAB_SIZE:
             raise ValueError(f"vocab_size must be at least {BASE_VOCAB_SIZE}")
@@ -80,9 +81,11 @@ class BPETokenizer:
                 merged: list[int] = []
                 cursor = 0
                 while cursor < len(sequence):
-                    if (cursor + 1 < len(sequence)
-                            and sequence[cursor] == left
-                            and sequence[cursor + 1] == right):
+                    if (
+                        cursor + 1 < len(sequence)
+                        and sequence[cursor] == left
+                        and sequence[cursor + 1] == right
+                    ):
                         merged.append(next_id)
                         cursor += 2
                     else:
@@ -92,8 +95,9 @@ class BPETokenizer:
             next_id += 1
         return cls(merges)
 
-    def encode(self, text: str, *, add_bos: bool = False,
-               add_eos: bool = False) -> list[int]:
+    def encode(
+        self, text: str, *, add_bos: bool = False, add_eos: bool = False
+    ) -> list[int]:
         if not isinstance(text, str):
             raise TypeError("text must be a string")
         tokens = list(text.encode("utf-8"))
@@ -109,15 +113,20 @@ class BPETokenizer:
             merge_id = BASE_VOCAB_SIZE + self._rank[
                 (tokens[index], tokens[index + 1])
             ]
-            tokens[index:index + 2] = [merge_id]
+            tokens[index : index + 2] = [merge_id]
         if add_bos:
             tokens.insert(0, self.bos_id)
         if add_eos:
             tokens.append(self.eos_id)
         return tokens
 
-    def decode(self, token_ids: Iterable[int], *, skip_special_tokens: bool = True,
-               errors: str = "strict") -> str:
+    def decode(
+        self,
+        token_ids: Iterable[int],
+        *,
+        skip_special_tokens: bool = True,
+        errors: str = "strict",
+    ) -> str:
         if errors not in ("strict", "replace", "ignore"):
             raise ValueError("errors must be strict, replace, or ignore")
         pieces: list[bytes] = []
@@ -130,8 +139,6 @@ class BPETokenizer:
             if 0 <= token_id <= 255:
                 pieces.append(bytes([token_id]))
             elif BASE_VOCAB_SIZE <= token_id < self.bos_id:
-                left, right = self.merges[token_id - BASE_VOCAB_SIZE]
-                # Expand recursively because merged tokens may contain merges.
                 stack = [token_id]
                 expanded: list[int] = []
                 while stack:
@@ -139,17 +146,22 @@ class BPETokenizer:
                     if current < BASE_VOCAB_SIZE:
                         expanded.append(current)
                     else:
-                        a, b = self.merges[current - BASE_VOCAB_SIZE]
-                        stack.extend((b, a))
+                        left, right = self.merges[current - BASE_VOCAB_SIZE]
+                        stack.extend((right, left))
                 pieces.append(bytes(expanded))
             else:
                 raise ValueError(f"unknown or unexpected token ID: {token_id}")
         return b"".join(pieces).decode("utf-8", errors=errors)
 
     def save(self, path: str | Path) -> None:
-        payload = {"format_version": 1, "type": "byte-bpe",
-                   "merges": [list(pair) for pair in self.merges]}
-        Path(path).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        payload = {
+            "format_version": 1,
+            "type": "byte-bpe",
+            "merges": [list(pair) for pair in self.merges],
+        }
+        Path(path).write_text(
+            json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+        )
 
     @classmethod
     def load(cls, path: str | Path) -> "BPETokenizer":
