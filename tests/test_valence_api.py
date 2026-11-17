@@ -10,7 +10,9 @@ from threading import Thread
 import pytest
 
 from proton_i.valence.api import create_server
-from proton_i.valence.backend import ChatMessage
+from proton_i.gluons.search import SearchResult
+from proton_i.valence.backend import ChatMessage, ChatTurn, ModelToolCall
+from proton_i.valence.integrations.gluons import register_gluons_tool
 from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy, ToolDefinition
 
 
@@ -327,7 +329,6 @@ def test_api_backend_failure_returns_sanitized_error() -> None:
         thread.join(timeout=2.0)
         server.server_close()
 
-
 def test_api_passes_explicit_tool_registry_and_policy_to_new_sessions() -> None:
     registry = CapabilityRegistry()
     registry.register(
@@ -360,3 +361,111 @@ def test_api_rejects_tool_policy_without_a_registry() -> None:
             port=0,
             tool_policy=ExecutionPolicy(frozenset({"search_web"})),
         )
+
+
+class SearchTestProvider:
+    """Deterministic search provider to verify the full API-to-Gluons path."""
+
+    def __init__(self) -> None:
+        self.queries: list[tuple[str, int]] = []
+
+    def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
+        self.queries.append((query, max_results))
+        return [
+            SearchResult(
+                title="Example CSS reference",
+                url="https://example.com/css",
+                snippet="CSS controls the presentation of a web document.",
+            )
+        ][:max_results]
+
+
+class ToolCallingBackend:
+    """Model double that asks for one search and then summarizes its result."""
+
+    def __init__(self) -> None:
+        self.turns = [
+            ChatTurn("", (ModelToolCall("search_web", {"query": "CSS"}),)),
+            ChatTurn("CSS controls presentation. Source: https://example.com/css"),
+        ]
+        self.calls: list[tuple[list[ChatMessage], list[dict[str, object]]]] = []
+
+    def complete(self, _messages: Sequence[ChatMessage]) -> str:
+        return "Plain response."
+
+    def complete_turn(self, messages, tools) -> ChatTurn:
+        self.calls.append((list(messages), list(tools)))
+        return self.turns.pop(0)
+
+
+def test_api_opt_in_runs_the_gluons_tool_and_returns_source_attribution() -> None:
+    backend = ToolCallingBackend()
+    searcher = SearchTestProvider()
+    registry = CapabilityRegistry()
+    register_gluons_tool(registry, searcher=searcher)
+    policy = ExecutionPolicy(frozenset({"search_web"}))
+    server = create_server(
+        backend,
+        port=0,
+        registry=registry,
+        tool_policy=policy,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, capabilities = request_json(server, "GET", "/v1/capabilities")
+        assert status == 200
+        assert capabilities["web_search"] == "enabled"
+        assert capabilities["model_tool_calling"] == "supported"
+
+        chat_status, response = request_json(
+            server,
+            "POST",
+            "/v1/chat",
+            {"message": "Find a source about CSS."},
+        )
+
+        assert chat_status == 200
+        assert "example.com/css" in response["message"]
+        assert searcher.queries == [("CSS", 5)]
+        assert len(backend.calls) == 2
+        tool_messages = [
+            message for message in backend.calls[1][0] if message.role == "tool"
+        ]
+        assert len(tool_messages) == 1
+        assert "untrusted_web_content" in tool_messages[0].content
+        assert "https://example.com/css" in tool_messages[0].content
+    finally:
+        server.shutdown()
+        thread.join(timeout=2.0)
+        server.server_close()
+
+
+def test_api_reports_registered_search_as_disabled_without_opt_in() -> None:
+    backend = ToolCallingBackend()
+    searcher = SearchTestProvider()
+    registry = CapabilityRegistry()
+    register_gluons_tool(registry, searcher=searcher)
+    server = create_server(
+        backend,
+        port=0,
+        registry=registry,
+        tool_policy=ExecutionPolicy(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, capabilities = request_json(server, "GET", "/v1/capabilities")
+        assert status == 200
+        assert capabilities["web_search"] == "disabled_by_policy"
+        chat_status, response = request_json(
+            server, "POST", "/v1/chat", {"message": "Answer without searching."}
+        )
+        assert chat_status == 200
+        assert response["message"] == "Plain response."
+        assert searcher.queries == []
+        assert backend.calls == []
+    finally:
+        server.shutdown()
+        thread.join(timeout=2.0)
+        server.server_close()

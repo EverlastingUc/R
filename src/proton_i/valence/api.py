@@ -178,25 +178,31 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
             )
             return
         if path == "/v1/capabilities":
+            search_registered = (
+                self.server.registry is not None
+                and self.server.registry.get("search_web") is not None
+            )
+            model_supports_tools = callable(
+                getattr(self.server.backend, "complete_turn", None)
+            )
+            if not search_registered:
+                search_status = "not_integrated"
+            elif "search_web" not in self.server.tool_policy.allowed_tools:
+                search_status = "disabled_by_policy"
+            elif not model_supports_tools:
+                search_status = "model_tool_calling_not_supported"
+            else:
+                search_status = "enabled"
+
             self._send_json(
                 200,
                 {
                     "local_chat": "supported",
                     "in_memory_conversations": "supported",
                     "model_tool_calling": (
-                        "supported"
-                        if callable(getattr(self.server.backend, "complete_turn", None))
-                        else "text_only"
+                        "supported" if model_supports_tools else "text_only"
                     ),
-                    "web_search": (
-                        "enabled"
-                        if "search_web" in self.server.tool_policy.allowed_tools
-                        else (
-                            "disabled_by_policy"
-                            if self.server.registry is not None
-                            else "not_enabled"
-                        )
-                    ),
+                    "web_search": search_status,
                     "mathematics_engine": "not_integrated",
                     "file_understanding": "not_integrated",
                     "artifact_creation": "not_integrated",
