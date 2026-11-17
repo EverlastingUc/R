@@ -267,3 +267,62 @@ def test_api_rejects_loopback_origin_from_different_port(running_api) -> None:
     )
     assert status == 403
     assert "same-origin" in response["error"]
+
+
+
+def test_api_sessions_keep_conversation_history_isolated() -> None:
+    backend = RecordingBackend(["A reply", "B reply", "A follow-up"])
+    server = create_server(backend, port=0, max_sessions=3)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        first_status, first = request_json(
+            server, "POST", "/v1/chat", {"message": "First session question"}
+        )
+        second_status, second = request_json(
+            server, "POST", "/v1/chat", {"message": "Second session question"}
+        )
+        followup_status, _followup = request_json(
+            server,
+            "POST",
+            "/v1/chat",
+            {
+                "message": "First session follow-up",
+                "session_id": first["session_id"],
+            },
+        )
+
+        assert first_status == second_status == followup_status == 200
+        assert first["session_id"] != second["session_id"]
+        assert backend.calls[2][1:] == [
+            ChatMessage("user", "First session question"),
+            ChatMessage("assistant", "A reply"),
+            ChatMessage("user", "First session follow-up"),
+        ]
+        assert all(
+            message.content != "Second session question"
+            for message in backend.calls[2]
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=2.0)
+        server.server_close()
+
+
+def test_api_backend_failure_returns_sanitized_error() -> None:
+    backend = RecordingBackend([])
+    server = create_server(backend, port=0)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, response = request_json(
+            server, "POST", "/v1/chat", {"message": "Trigger a failure"}
+        )
+        assert status == 502
+        assert response["error"] == "Valence could not complete this message."
+        assert "no test reply configured" not in response["error"]
+        assert isinstance(response["session_id"], str)
+    finally:
+        server.shutdown()
+        thread.join(timeout=2.0)
+        server.server_close()
