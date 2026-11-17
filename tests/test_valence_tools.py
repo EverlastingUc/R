@@ -132,7 +132,9 @@ def test_catalog_only_discloses_tools_allowed_by_policy() -> None:
         )
     )
 
-    catalog = registry.catalog(ExecutionPolicy(frozenset({"add_numbers", "disabled_tool"})))
+    catalog = registry.catalog(
+        ExecutionPolicy(frozenset({"add_numbers", "disabled_tool"}))
+    )
 
     assert len(catalog) == 1
     assert catalog[0]["name"] == "add_numbers"

@@ -54,7 +54,12 @@ class ToolParameter:
         if not _is_tool_name(self.name):
             raise ValueError("parameter names must be lowercase identifiers")
         if self.value_type not in {
-            "string", "integer", "number", "boolean", "object", "array"
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "object",
+            "array"
         }:
             raise ValueError("parameter value_type is not supported")
         if not isinstance(self.description, str) or not self.description.strip():
@@ -97,7 +102,9 @@ class ToolParameter:
         ):
             raise ValueError("max_length must be a positive integer")
         if self.max_length is not None and self.value_type not in {
-            "string", "array", "object"
+            "string",
+            "array",
+            "object"
         }:
             raise ValueError("max_length requires a string, array, or object parameter")
 
@@ -186,7 +193,9 @@ class ExecutionPolicy:
         try:
             names = frozenset(self.allowed_tools)
         except TypeError as error:
-            raise TypeError("allowed_tools must be an iterable of tool names") from error
+            raise TypeError(
+                "allowed_tools must be an iterable of tool names"
+            ) from error
         if any(not _is_tool_name(name) for name in names):
             raise ValueError("allowed_tools contains an invalid tool name")
         object.__setattr__(self, "allowed_tools", names)
@@ -302,7 +311,9 @@ class ToolExecutor:
         if not definition.enabled:
             return ToolResult(name, "denied", error="Tool is disabled.")
         if name not in policy.allowed_tools:
-            return ToolResult(name, "denied", error="Tool is not allowed by this policy.")
+            return ToolResult(
+                name, "denied", error="Tool is not allowed by this policy."
+            )
         if definition.requires_approval and not approved:
             return ToolResult(
                 name,
@@ -310,14 +321,20 @@ class ToolExecutor:
                 error="This tool requires explicit application-side user approval.",
             )
         if not isinstance(arguments, Mapping):
-            return ToolResult(name, "invalid", error="Tool arguments must be a JSON object.")
+            return ToolResult(
+                name, "invalid", error="Tool arguments must be a JSON object."
+            )
 
         try:
             encoded_arguments = _json_bytes(dict(arguments))
         except (TypeError, ValueError):
-            return ToolResult(name, "invalid", error="Tool arguments must be valid JSON.")
+            return ToolResult(
+                name, "invalid", error="Tool arguments must be valid JSON."
+            )
         if len(encoded_arguments) > policy.max_argument_bytes:
-            return ToolResult(name, "invalid", error="Tool arguments exceed the size limit.")
+            return ToolResult(
+                name, "invalid", error="Tool arguments exceed the size limit."
+            )
 
         normalized_arguments = json.loads(encoded_arguments.decode("utf-8"))
         validation_error = _validate_arguments(definition, normalized_arguments)
@@ -338,7 +355,9 @@ class ToolExecutor:
                 error="Tool returned data that cannot be encoded as JSON.",
             )
         if len(encoded_output) > policy.max_output_bytes:
-            return ToolResult(name, "failed", error="Tool output exceeds the size limit.")
+            return ToolResult(
+                name, "failed", error="Tool output exceeds the size limit."
+            )
 
         return ToolResult(
             name,
@@ -367,7 +386,8 @@ def _validate_arguments(
         kind = parameter.value_type
         valid_type = {
             "string": lambda item: isinstance(item, str),
-            "integer": lambda item: isinstance(item, int) and not isinstance(item, bool),
+            "integer": lambda item: isinstance(item, int)
+            and not isinstance(item, bool),
             "number": lambda item: (
                 isinstance(item, (int, float))
                 and not isinstance(item, bool)
