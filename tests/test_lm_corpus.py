@@ -149,3 +149,26 @@ def test_split_has_no_document_overlap(tmp_path):
     assert len(assignments) == len(set(assignments))
     assert sum(manifest["splits"].values()) == manifest["document_count"]
     assert manifest["splits"]["train"] > 0
+
+
+
+def test_bpe_tokenizer_file_matches_manifest_metadata(tmp_path):
+    import hashlib
+
+    source = tmp_path / "source"
+    _write_corpus(
+        source,
+        {f"doc-{index}.txt": ("repeated corpus phrase " * 20) + str(index) for index in range(10)},
+    )
+    output = tmp_path / "prepared"
+    manifest = prepare_corpus(
+        source, output, tokenizer_type="bpe", vocab_size=280, seed=7
+    )
+    metadata = json.loads((output / "tokenizer.json").read_text(encoding="utf-8"))
+    fingerprint = hashlib.sha256(
+        json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    assert metadata == manifest["tokenizer"]
+    assert fingerprint == manifest["tokenizer_fingerprint"]
+    restored = BPETokenizer.load(output / "tokenizer.json")
+    assert restored.vocab_size == metadata["vocab_size"]
