@@ -8,6 +8,9 @@ version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = ["numpy>=2.2.6"]
 
+[project.scripts]
+gluons = "proton_i.gluons.__main__:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

@@ -245,3 +245,21 @@
 - **Evidence:** The candidate page uses official UCI repository pages for the
   real-data option. No Phase 05 data has been downloaded or used.
 - **Next:** Wait for owner approval of one dataset plan, then begin CP21.
+
+
+## 2026-11-17 — Proton-I Stage 1: Gluons baseline
+
+- **Done:** Added the Gluons package under `src/proton_i/gluons/`. It performs
+  web search through DuckDuckGo's public HTML results page, selects a concise
+  relevant snippet, returns one plain-text paragraph with a source URL, and
+  rejects JavaScript/framework requests as out of scope. Added a CLI entry
+  point, usage guide, tests, and README instructions. Existing Entropy network
+  modules and checkpoints were not changed.
+- **Evidence:** Targeted Gluons tests: 9 passed. Python compile check passed.
+  The full repository suite has not been run in this environment.
+- **Limitations:** Gluons 0.1 is a retrieval-based baseline, not a trained
+  generative model. The live web request could not be verified because outbound
+  internet access is unavailable in this development runtime. The DDG HTML
+  markup is best-effort and may change or be rate-limited.
+- **Next:** Run the Gluons command from a network-enabled local environment and
+  verify live search. Valence Quarks has not been started.

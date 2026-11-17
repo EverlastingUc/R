@@ -1,8 +1,8 @@
 # Entropy
 
-Entropy is our from-scratch neural-network project. The first model learns a
-small puzzle called XOR. This keeps the examples tiny enough to understand and
-lets us check the calculations by hand.
+Entropy is our from-scratch neural-network research project. The first model
+learns a small puzzle called XOR. This keeps the examples tiny enough to
+understand and lets us check the calculations by hand.
 
 ## How we train it
 
@@ -68,28 +68,47 @@ The full pipeline uses generated examples, so it needs no download. It saves a
 new numbered training report and model checkpoint under `reports/` each time.
 The settings and random seeds are in `configs/cp20_training_pipeline.json`.
 
+## Proton-I: Gluons (Stage 1)
+
+Gluons is Proton-I's first deliberately limited assistant. It searches the web,
+selects a short relevant result snippet, and prints one plain-text paragraph
+with a source URL. It does not use Markdown. JavaScript and framework requests
+are outside this stage.
+
+Gluons 0.1 is a retrieval-based baseline, not a trained generative language
+model. The existing Entropy neural-network modules and checkpoints remain
+unchanged; no language-answering weights are claimed. The search adapter uses
+DuckDuckGo's HTML results page as a best-effort provider, so it can be affected
+by provider rate limits or markup changes.
+
+Run Gluons from PowerShell after installing the project:
+
+```powershell
+python -m proton_i.gluons "What is CSS Flexbox?"
+```
+
+Or use the installed command:
+
+```powershell
+gluons "What is semantic HTML?"
+```
+
+See [the Gluons stage guide](docs/proton_i/GLUONS.md) for its exact scope,
+limitations, and tests.
+
 ## Project map
 
-- `neural_network.py` — Entropy's small feedforward network.
-- `src/nn/neuron.py` — one artificial neuron with identity and sigmoid output.
-- `src/nn/activations.py` — common activations and derivative functions.
-- `src/nn/layers.py` — configurable fully connected layers.
-- `src/nn/network.py` — feedforward network with multiple hidden layers.
-- `src/nn/losses.py` — regression and classification loss functions.
-- `src/nn/backprop.py` and `src/nn/gradcheck.py` — learning gradients and
-  checks against numerical approximations.
-- `src/nn/optimizers.py` and `src/nn/trainer.py` — parameter updates, batches,
-  validation, and resumable training.
-- `src/nn/linear_algebra.py` — small vector and matrix operations.
-- `src/nn/calculus.py` — sigmoid, loss, and derivative examples.
-- `src/nn/probability.py` — probability, statistics, entropy, and sampling.
-- `src/nn/numerics.py` — stable softmax, log-sum-exp, and precision examples.
-- `src/nn/optimization.py` — gradient descent and learning-rate examples.
-- `tests/` — hand-calculated neuron checks and experiment acceptance checks.
-- `configs/` — fixed training settings and seed.
+- `neural_network.py` — Entropy's small binary network.
+- `src/nn/` — NumPy neurons, layers, feedforward network, losses, backprop,
+  optimizers, trainer, and numerical utilities.
+- `src/proton_i/gluons/` — Proton-I Stage 1 plain-text web assistant.
+- `tests/` — neural-network and Gluons tests.
+- `configs/` — fixed training settings and seeds.
 - `experiments/` — runnable training and learning experiments.
-- `docs/checkpoints/` — explanations and evidence for each learning step.
-- `reports/` — measured results and the saved plot.
+- `docs/checkpoints/` — explanations and evidence for Entropy checkpoints.
+- `docs/proton_i/` — Proton-I stage specifications and guides.
+- `reports/` — measured experiment results and saved checkpoints.
 
-This is a small binary classifier, not a general-purpose assistant. We will
-only add complexity after each earlier step is understood and checked.
+Entropy's current research models are small experimental networks, not
+general-purpose assistants. Gluons is a separate retrieval-based prototype;
+its capabilities are limited to the behavior described above.
