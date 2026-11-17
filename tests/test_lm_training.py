@@ -122,3 +122,97 @@ def test_prepared_dataset_rejects_stale_tokenizer_fingerprint(tmp_path) -> None:
     train_file.write_text(json.dumps(record) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="invalid metadata"):
         train_language_model(prepared, steps=1)
+
+
+def test_training_can_resume_deterministically(tmp_path) -> None:
+    corpus = "A tiny corpus for deterministic checkpoint continuation. " * 100
+    config = TransformerConfig(
+        context_length=12,
+        embedding_dim=8,
+        num_heads=2,
+        num_layers=1,
+        dropout=0.15,
+    )
+    common = {
+        "config": config,
+        "steps": 4,
+        "batch_size": 2,
+        "eval_interval": 2,
+        "eval_batches": 2,
+        "seed": 19,
+        "learning_rate": 1e-3,
+        "warmup_steps": 1,
+        "gradient_accumulation_steps": 2,
+    }
+    uninterrupted_path = tmp_path / "uninterrupted.pt"
+    partial_path = tmp_path / "partial.pt"
+
+    uninterrupted_history = train_language_model(
+        corpus, checkpoint_path=uninterrupted_path, **common
+    )
+    first_history = train_language_model(
+        corpus,
+        checkpoint_path=partial_path,
+        max_steps_per_run=2,
+        **common,
+    )
+    assert len(first_history) == 1
+    partial_payload = torch.load(partial_path, map_location="cpu", weights_only=True)
+    assert partial_payload["training"]["completed_steps"] == 2
+    assert set(partial_payload["rng_state"]) >= {
+        "torch_cpu",
+        "torch_cuda",
+        "train_generator",
+        "training_eval_generator",
+        "validation_generator",
+    }
+
+    resumed_history = train_language_model(
+        corpus,
+        checkpoint_path=partial_path,
+        resume_from=partial_path,
+        **common,
+    )
+    uninterrupted = torch.load(
+        uninterrupted_path, map_location="cpu", weights_only=True
+    )
+    resumed = torch.load(partial_path, map_location="cpu", weights_only=True)
+    assert resumed_history == uninterrupted_history
+    assert resumed["training"]["completed_steps"] == 4
+    for name, expected in uninterrupted["model_state"].items():
+        assert torch.equal(resumed["model_state"][name], expected)
+
+
+def test_resume_rejects_a_different_corpus_or_training_configuration(tmp_path) -> None:
+    checkpoint = tmp_path / "resume.pt"
+    config = TransformerConfig(
+        context_length=8,
+        embedding_dim=8,
+        num_heads=2,
+        num_layers=1,
+        dropout=0.0,
+    )
+    options = {
+        "config": config,
+        "steps": 3,
+        "batch_size": 2,
+        "eval_interval": 1,
+        "eval_batches": 1,
+        "checkpoint_path": checkpoint,
+    }
+    corpus = "the same training source repeated many times. " * 40
+    train_language_model(corpus, max_steps_per_run=1, **options)
+
+    with pytest.raises(ValueError, match="corpus does not match"):
+        train_language_model(
+            corpus + "changed",
+            resume_from=checkpoint,
+            **(options | {"checkpoint_path": checkpoint}),
+        )
+
+    with pytest.raises(ValueError, match="configuration does not match"):
+        train_language_model(
+            corpus,
+            resume_from=checkpoint,
+            **(options | {"learning_rate": 1e-4}),
+        )
