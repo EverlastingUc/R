@@ -38,10 +38,10 @@ def create_mathematics_tool(
     return ToolDefinition(
         name="calculate_expression",
         description=(
-            "Evaluate a basic arithmetic expression exactly using fractions. "
-            "Supports +, -, *, /, %, bounded integer powers, unary signs, exact rational
-            decimals, parentheses, and the abs, sqrt, gcd, lcm, ratio, and percent
-            function whitelist."
+            "Evaluate a mathematical expression using exact rational values where "
+            "possible. Supports +, -, *, /, %, bounded integer powers, unary signs, "
+            "decimals, parentheses, and the abs, sqrt, gcd, lcm, ratio, and percent "
+            "functions. Irrational square roots are explicitly approximate."
         ),
         parameters=(
             ToolParameter(

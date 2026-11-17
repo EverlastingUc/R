@@ -10,11 +10,11 @@ import pytest
 from proton_i.valence.expressions import BinaryNode, FunctionNode
 from proton_i.valence.mathematics import MathematicsEngine, MathematicsError
 
-
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
         ("2 ** 3", Fraction(8)),
+        ("2 ** 1000", Fraction(2**1000)),
         ("2**3**2", Fraction(512)),
         ("-2**2", Fraction(-4)),
         ("(-2)**2", Fraction(4)),

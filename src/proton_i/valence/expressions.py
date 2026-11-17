@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Literal, TypeAlias
 
-ArithmeticOperator: TypeAlias = Literal["+", "-", "*", "/"]
+ArithmeticOperator: TypeAlias = Literal["+", "-", "*", "/", "%", "**"]
 UnaryOperator: TypeAlias = Literal["+", "-"]
 
 
@@ -34,4 +34,12 @@ class BinaryNode:
     right: ExpressionNode
 
 
-ExpressionNode: TypeAlias = NumberNode | UnaryNode | BinaryNode
+@dataclass(frozen=True, slots=True)
+class FunctionNode:
+    """An allowlisted mathematical function applied to ordered arguments."""
+
+    name: str
+    arguments: tuple[ExpressionNode, ...]
+
+
+ExpressionNode: TypeAlias = NumberNode | UnaryNode | BinaryNode | FunctionNode
