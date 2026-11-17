@@ -50,7 +50,7 @@ def _labels_to_one_hot(
         raise TypeError(f"{name} labels must contain integer class IDs")
     class_ids = values.astype(np.int64, copy=False)
     if np.any(class_ids < 0) or np.any(class_ids >= class_count):
-        raise ValueError(f"{name} labels must be in [0, {class_count - 1}]")
+        raise ValueError(f"{name} labels must contain class IDs in [0, {class_count - 1}]")
     return class_ids, np.eye(class_count, dtype=np.float64)[class_ids]
 
 
