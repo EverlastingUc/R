@@ -26,7 +26,7 @@ def load_model_checkpoint(
         raise TypeError("checkpoint architecture and model weights must be mappings")
     metadata = checkpoint.get("tokenizer")
     if not isinstance(metadata, dict):
-        raise ValueError("checkpoint tokenizer metadata is missing")
+        raise TypeError("checkpoint tokenizer metadata must be a mapping")
     if metadata.get("type") == "utf8-byte":
         tokenizer: ByteTokenizer | BPETokenizer = ByteTokenizer()
         expected = {"type": "utf8-byte", "vocab_size": tokenizer.vocab_size}
