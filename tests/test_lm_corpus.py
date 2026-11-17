@@ -134,9 +134,10 @@ def test_single_file_input_and_output_inside_source_are_safe(tmp_path):
     _write_corpus(folder, {"a.txt": "first", "b.txt": "second"})
     prepare_corpus(folder, folder / "prepared", tokenizer_type="byte")
     assert not any(
-        item["source"].startswith("prepared/") for item in json.loads(
-            (folder / "prepared" / "manifest.json").read_text()
-        )["documents"]
+        item["source"].startswith("prepared/")
+        for item in json.loads((folder / "prepared" / "manifest.json").read_text())[
+            "documents"
+        ]
     )
 
 
