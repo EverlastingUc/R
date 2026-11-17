@@ -67,7 +67,7 @@ class ValenceEngine:
         if not cleaned_prompt:
             raise ValueError("prompt must not be empty")
         if len(cleaned_prompt) > MAX_INPUT_CHARS:
-            raise ValueError(f"prompt must be {MAX_INPUT_CHARS} characters or fewer")
+            raise ValueError(f"prompt must be {MAX_INPUT_CHARS:,} characters or fewer")
 
         previous_messages = self._trim_history(self._history)
         user_message = ChatMessage("user", cleaned_prompt)
