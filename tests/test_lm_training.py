@@ -55,6 +55,7 @@ def test_training_rejects_too_short_corpus() -> None:
             steps=1,
         )
 
+
 def test_training_rejects_invalid_accumulation_and_warmup() -> None:
     corpus = "training and validation text. " * 20
     with pytest.raises(ValueError, match="gradient_accumulation_steps"):
