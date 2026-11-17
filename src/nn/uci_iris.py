@@ -86,7 +86,9 @@ def _validate_archive(path: Path) -> None:
                     raise ValueError("Iris archive expands beyond the size limit")
             corrupt_member = archive.testzip()
             if corrupt_member is not None:
-                raise ValueError(f"Iris archive contains a corrupt file: {corrupt_member}")
+                raise ValueError(
+                    f"Iris archive contains a corrupt file: {corrupt_member}"
+                )
     except zipfile.BadZipFile as error:
         raise ValueError("Iris archive is not a valid ZIP file") from error
 
