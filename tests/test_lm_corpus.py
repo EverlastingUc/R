@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from entropy_lm.bpe_tokenizer import BPETokenizer
 from entropy_lm.corpus import prepare_corpus
 
 
@@ -151,14 +152,16 @@ def test_split_has_no_document_overlap(tmp_path):
     assert manifest["splits"]["train"] > 0
 
 
-
 def test_bpe_tokenizer_file_matches_manifest_metadata(tmp_path):
     import hashlib
 
     source = tmp_path / "source"
     _write_corpus(
         source,
-        {f"doc-{index}.txt": ("repeated corpus phrase " * 20) + str(index) for index in range(10)},
+        {
+            f"doc-{index}.txt": ("repeated corpus phrase " * 20) + str(index)
+            for index in range(10)
+        },
     )
     output = tmp_path / "prepared"
     manifest = prepare_corpus(
