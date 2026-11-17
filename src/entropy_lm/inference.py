@@ -55,7 +55,9 @@ def load_model_checkpoint(
     try:
         model.load_state_dict(state, strict=True)
     except (RuntimeError, TypeError) as error:
-        raise ValueError("checkpoint model weights do not match architecture") from error
+        raise ValueError(
+            "checkpoint model weights do not match architecture"
+        ) from error
     model.tokenizer = tokenizer
     model.eval()
     return model
@@ -71,20 +73,27 @@ def generate_text(
 ) -> str:
     """Generate text using the tokenizer stored with the loaded model."""
     tokenizer = getattr(model, "tokenizer", ByteTokenizer())
-    prompt_ids = tokenizer.encode(prompt) or [tokenizer.bos_id if isinstance(tokenizer, BPETokenizer) else BOS_ID]
+    prompt_ids = tokenizer.encode(prompt) or [
+        tokenizer.bos_id if isinstance(tokenizer, BPETokenizer) else BOS_ID
+    ]
     input_ids = torch.tensor(
-        [prompt_ids], dtype=torch.long,
+        [prompt_ids],
+        dtype=torch.long,
         device=next(model.parameters()).device,
     )
     generated = model.generate(
-        input_ids, max_new_tokens=max_new_tokens,
-        temperature=temperature, top_k=top_k,
+        input_ids,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        top_k=top_k,
     )
     return tokenizer.decode(generated[0].tolist(), errors="replace")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate with an Entropy LM checkpoint.")
+    parser = argparse.ArgumentParser(
+        description="Generate with an Entropy LM checkpoint."
+    )
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("--prompt", default="")
     parser.add_argument("--max-new-tokens", type=int, default=100)
@@ -93,10 +102,15 @@ def main() -> None:
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
     model = load_model_checkpoint(args.checkpoint, device=args.device)
-    print(generate_text(
-        model, args.prompt, max_new_tokens=args.max_new_tokens,
-        temperature=args.temperature, top_k=args.top_k,
-    ))
+    print(
+        generate_text(
+            model,
+            args.prompt,
+            max_new_tokens=args.max_new_tokens,
+            temperature=args.temperature,
+            top_k=args.top_k,
+        )
+    )
 
 
 if __name__ == "__main__":
