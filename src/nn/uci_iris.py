@@ -76,11 +76,17 @@ def _validate_archive(path: Path) -> None:
             members = archive.infolist()
             if not members or len(members) > 20:
                 raise ValueError("Iris archive has an unexpected file count")
+            total_uncompressed = 0
             for member in members:
                 member_path = PurePosixPath(member.filename)
                 if member_path.is_absolute() or ".." in member_path.parts:
                     raise ValueError("Iris archive contains an unsafe path")
-            archive.testzip()
+                total_uncompressed += member.file_size
+                if total_uncompressed > MAX_ARCHIVE_BYTES:
+                    raise ValueError("Iris archive expands beyond the size limit")
+            corrupt_member = archive.testzip()
+            if corrupt_member is not None:
+                raise ValueError(f"Iris archive contains a corrupt file: {corrupt_member}")
     except zipfile.BadZipFile as error:
         raise ValueError("Iris archive is not a valid ZIP file") from error
 
