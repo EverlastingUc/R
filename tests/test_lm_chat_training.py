@@ -88,9 +88,7 @@ def test_sft_training_saves_inference_compatible_checkpoint(tmp_path):
         checkpoint_path=checkpoint,
     )
     assert len(history) == 2
-    assert all(
-        torch.isfinite(torch.tensor(row["validation_loss"])) for row in history
-    )
+    assert all(torch.isfinite(torch.tensor(row["validation_loss"])) for row in history)
     payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
     assert payload["training"]["assistant_only_loss"] is True
     assert payload["training"]["task"] == "assistant-response-supervised-finetuning"
