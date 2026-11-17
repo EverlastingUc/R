@@ -421,7 +421,6 @@ def test_policy_rejects_invalid_limits_and_tool_names() -> None:
         ExecutionPolicy(frozenset(), max_output_bytes=0)
 
 
-
 def test_policy_rejects_a_string_instead_of_a_tool_name_collection() -> None:
     with pytest.raises(TypeError, match="iterable of tool names"):
         ExecutionPolicy("add_numbers")  # type: ignore[arg-type]
