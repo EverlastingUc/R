@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 import torch
 from torch import Tensor, nn
@@ -122,7 +123,7 @@ class CausalLanguageModel(nn.Module):
         """Autoregressively sample tokens, cropping to the context window."""
         if max_new_tokens < 0:
             raise ValueError("max_new_tokens must be non-negative")
-        if temperature <= 0.0:
+        if not math.isfinite(temperature) or temperature <= 0.0:
             raise ValueError("temperature must be positive")
         if top_k is not None and not 1 <= top_k <= self.config.vocab_size:
             raise ValueError("top_k must be within the vocabulary size")
