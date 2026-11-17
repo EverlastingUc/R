@@ -92,7 +92,7 @@ def test_chat_creates_a_random_session_and_returns_reply(running_api) -> None:
 
 def test_chat_keeps_context_and_reset_clears_it(running_api) -> None:
     server, backend = running_api
-    first_status, _first = request_json(
+    first_status, first = request_json(
         server, "POST", "/v1/chat", {"message": "First question"}
     )
     session_id = first["session_id"]
