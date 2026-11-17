@@ -23,9 +23,7 @@ def test_web_search_adds_gluons_without_removing_calculator() -> None:
         "calculate_expression",
         "search_web",
     ]
-    assert policy.allowed_tools == frozenset(
-        {"calculate_expression", "search_web"}
-    )
+    assert policy.allowed_tools == frozenset({"calculate_expression", "search_web"})
 
 
 @pytest.mark.parametrize("value", ["yes", 1, None])

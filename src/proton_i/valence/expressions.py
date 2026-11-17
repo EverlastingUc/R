@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Literal, TypeAlias
-
 ArithmeticOperator: TypeAlias = Literal["+", "-", "*", "/"]
 UnaryOperator: TypeAlias = Literal["+", "-"]
 
