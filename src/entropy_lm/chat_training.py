@@ -73,7 +73,9 @@ def _load_chat_dataset(
                     f"invalid {split} JSONL record at line {line_number}"
                 ) from error
             if not isinstance(record, dict):
-                raise TypeError(f"{split} record at line {line_number} must be an object")
+                raise TypeError(
+                    f"{split} record at line {line_number} must be an object"
+                )
             if record.get("tokenizer_fingerprint") != fingerprint:
                 raise ValueError(f"{split} record tokenizer fingerprint mismatch")
             token_ids = record.get("input_ids")
@@ -93,10 +95,7 @@ def _load_chat_dataset(
                 or any(
                     not isinstance(label, int)
                     or isinstance(label, bool)
-                    or (
-                        label != IGNORE_INDEX
-                        and not 0 <= label < tokenizer.vocab_size
-                    )
+                    or (label != IGNORE_INDEX and not 0 <= label < tokenizer.vocab_size)
                     for label in labels
                 )
             ):
@@ -201,7 +200,8 @@ def train_on_conversations(
         raise TypeError("seed must be an integer")
 
     dataset = _load_chat_dataset(
-        Path(dataset_directory), context_length=(config or TransformerConfig()).context_length
+        Path(dataset_directory),
+        context_length=(config or TransformerConfig()).context_length,
     )
     (
         train_inputs,
@@ -245,9 +245,7 @@ def train_on_conversations(
             )
             batch_inputs = train_inputs[indices].to(target_device)
             batch_targets = train_targets[indices].to(target_device)
-            _, loss = model(
-                batch_inputs, batch_targets, ignore_index=IGNORE_INDEX
-            )
+            _, loss = model(batch_inputs, batch_targets, ignore_index=IGNORE_INDEX)
             if loss is None or not torch.isfinite(loss):
                 raise FloatingPointError("assistant-only training loss is non-finite")
             accumulated_loss += float(loss.item())
@@ -314,7 +312,9 @@ def main() -> None:
         description="Supervised fine-tune Entropy on prepared conversation data."
     )
     parser.add_argument("dataset", type=Path, help="LM11 prepared chat dataset")
-    parser.add_argument("--checkpoint", type=Path, default=Path("entropy-chat-model.pt"))
+    parser.add_argument(
+        "--checkpoint", type=Path, default=Path("entropy-chat-model.pt")
+    )
     parser.add_argument("--steps", type=int, default=1000)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
@@ -330,9 +330,7 @@ def main() -> None:
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
-    metadata = json.loads(
-        (args.dataset / "tokenizer.json").read_text(encoding="utf-8")
-    )
+    metadata = json.loads((args.dataset / "tokenizer.json").read_text(encoding="utf-8"))
     history = train_on_conversations(
         args.dataset,
         config=TransformerConfig(
