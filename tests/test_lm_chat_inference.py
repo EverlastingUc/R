@@ -55,7 +55,11 @@ def test_chat_response_uses_sft_checkpoint_and_eos_stopping(tmp_path):
         )
     prepared = tmp_path / "prepared"
     prepare_chat_dataset(
-        source, prepared, validation_fraction=0.2, test_fraction=0.2, tokenizer_type="byte"
+        source,
+        prepared,
+        validation_fraction=0.2,
+        test_fraction=0.2,
+        tokenizer_type="byte",
     )
     checkpoint = tmp_path / "assistant.pt"
     train_on_conversations(
