@@ -300,7 +300,9 @@ def train_on_conversations(
         if saved_training.get("corpus_sha256") != corpus_sha256:
             raise ValueError("SFT resume checkpoint corpus does not match")
         if saved_training.get("run_config") != run_config:
-            raise ValueError("SFT resume checkpoint training configuration does not match")
+            raise ValueError(
+                "SFT resume checkpoint training configuration does not match"
+            )
         resume_state = saved.get("resume_state")
         if not isinstance(resume_state, dict):
             raise ValueError("SFT resume checkpoint is missing latest training state")
@@ -473,6 +475,7 @@ def train_on_conversations(
 
     save_progress()
     return history
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
