@@ -162,9 +162,7 @@ def train_language_model(
                     "step": step,
                     "training_loss": training_loss,
                     "validation_loss": validation_loss,
-                    "validation_perplexity": math.exp(
-                        min(validation_loss, 80.0)
-                    ),
+                    "validation_perplexity": math.exp(min(validation_loss, 80.0)),
                 }
             )
 
