@@ -107,17 +107,19 @@ def _get_archive(cache_directory: str | Path) -> Path:
     )
     temporary_path: Path | None = None
     try:
-        with urllib.request.urlopen(request, timeout=30.0) as response:
-            with tempfile.NamedTemporaryFile(
+        with (
+            urllib.request.urlopen(request, timeout=30.0) as response,
+            tempfile.NamedTemporaryFile(
                 mode="wb", dir=directory, suffix=".part", delete=False
-            ) as temporary:
-                temporary_path = Path(temporary.name)
-                total = 0
-                while chunk := response.read(64 * 1024):
-                    total += len(chunk)
-                    if total > MAX_ARCHIVE_BYTES:
-                        raise ValueError("Iris download exceeds the size limit")
-                    temporary.write(chunk)
+            ) as temporary,
+        ):
+            temporary_path = Path(temporary.name)
+            total = 0
+            while chunk := response.read(64 * 1024):
+                total += len(chunk)
+                if total > MAX_ARCHIVE_BYTES:
+                    raise ValueError("Iris download exceeds the size limit")
+                temporary.write(chunk)
         _validate_archive(temporary_path)
         os.replace(temporary_path, destination)
         temporary_path = None
