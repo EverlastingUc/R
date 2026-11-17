@@ -67,7 +67,7 @@ def test_bpe_tokenizer_is_fit_on_training_documents_only(tmp_path):
             "e.txt": "fifth phrase",
         },
     )
-    manifest = prepare_corpus(source, tmp_path / "out", seed=3, vocab_size=280)
+    manifest = prepare_corpus(source, tmp_path / "out", seed=0, vocab_size=280)
     training_sources = {
         item["source"] for item in manifest["documents"] if item["split"] == "train"
     }
