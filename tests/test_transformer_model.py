@@ -121,9 +121,7 @@ def test_generation_stops_after_eos_token(monkeypatch) -> None:
         )
 
     monkeypatch.setattr(torch, "multinomial", sample_eos)
-    generated = model.generate(
-        tokens, max_new_tokens=8, top_k=1, eos_token_id=3
-    )
+    generated = model.generate(tokens, max_new_tokens=8, top_k=1, eos_token_id=3)
     assert generated.shape == (1, 3)
     assert generated[0, -1].item() == 3
 
