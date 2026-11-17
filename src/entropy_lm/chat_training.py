@@ -206,8 +206,10 @@ def train_on_conversations(
     seed: int = 0,
     device: str = "cpu",
     checkpoint_path: str | Path = "entropy-chat-model.pt",
+    resume_from: str | Path | None = None,
+    max_steps_per_run: int | None = None,
 ) -> list[dict[str, float | int]]:
-    """Fine-tune a decoder-only Transformer using assistant-response targets."""
+    """Fine-tune on assistant targets, with exact CPU pause/resume support."""
     if steps < 1 or batch_size < 1 or eval_interval < 1:
         raise ValueError("steps, batch_size, and eval_interval must be positive")
     if gradient_accumulation_steps < 1:
@@ -225,10 +227,14 @@ def train_on_conversations(
         raise ValueError("learning_rate must be positive and finite")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed must be an integer")
+    if max_steps_per_run is not None and max_steps_per_run < 1:
+        raise ValueError("max_steps_per_run must be positive when supplied")
+    if resume_from is not None and checkpoint_path == "entropy-chat-model.pt":
+        checkpoint_path = resume_from
 
+    architecture = config or TransformerConfig()
     dataset = _load_chat_dataset(
-        Path(dataset_directory),
-        context_length=(config or TransformerConfig()).context_length,
+        Path(dataset_directory), context_length=architecture.context_length
     )
     (
         train_inputs,
@@ -238,12 +244,25 @@ def train_on_conversations(
         tokenizer,
         corpus_sha256,
     ) = dataset
-    architecture = config or TransformerConfig(vocab_size=tokenizer.vocab_size)
     if architecture.vocab_size != tokenizer.vocab_size:
         raise ValueError("model vocab_size must match the prepared chat tokenizer")
 
-    torch.manual_seed(seed)
     target_device = torch.device(device)
+    run_config = {
+        "steps": steps,
+        "batch_size": batch_size,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+        "learning_rate": learning_rate,
+        "eval_interval": eval_interval,
+        "warmup_steps": warmup_steps,
+        "minimum_learning_rate_ratio": minimum_learning_rate_ratio,
+        "early_stopping_patience": early_stopping_patience,
+        "seed": seed,
+        "device": device,
+        "corpus_sha256": corpus_sha256,
+    }
+
+    torch.manual_seed(seed)
     model = CausalLanguageModel(architecture).to(target_device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -258,11 +277,135 @@ def train_on_conversations(
     generator = torch.Generator(device="cpu").manual_seed(seed + 1)
     history: list[dict[str, float | int]] = []
     best_validation_loss = math.inf
+    best_model_state: dict[str, Tensor] | None = None
     evaluations_without_improvement = 0
+    completed_steps = 0
     checkpoint = Path(checkpoint_path)
     checkpoint.parent.mkdir(parents=True, exist_ok=True)
 
-    for step in range(1, steps + 1):
+    if resume_from is not None:
+        resume_path = Path(resume_from)
+        if not resume_path.is_file():
+            raise FileNotFoundError("SFT resume checkpoint does not exist")
+        saved = torch.load(resume_path, map_location="cpu", weights_only=True)
+        if not isinstance(saved, dict) or saved.get("format_version") != 2:
+            raise ValueError("SFT resume requires a version 2 checkpoint")
+        if saved.get("architecture") != asdict(architecture):
+            raise ValueError("SFT resume checkpoint architecture does not match")
+        if saved.get("tokenizer") != _tokenizer_metadata(tokenizer):
+            raise ValueError("SFT resume checkpoint tokenizer does not match")
+        saved_training = saved.get("training")
+        if not isinstance(saved_training, dict):
+            raise ValueError("SFT resume checkpoint training metadata is malformed")
+        if saved_training.get("corpus_sha256") != corpus_sha256:
+            raise ValueError("SFT resume checkpoint corpus does not match")
+        if saved_training.get("run_config") != run_config:
+            raise ValueError("SFT resume checkpoint training configuration does not match")
+        resume_state = saved.get("resume_state")
+        if not isinstance(resume_state, dict):
+            raise ValueError("SFT resume checkpoint is missing latest training state")
+        required_states = ("model_state", "optimizer_state", "scheduler_state")
+        if any(not isinstance(resume_state.get(key), dict) for key in required_states):
+            raise ValueError("SFT resume checkpoint state is malformed")
+        rng_state = resume_state.get("rng_state")
+        if not isinstance(rng_state, dict):
+            raise ValueError("SFT resume checkpoint RNG state is missing")
+        try:
+            model.load_state_dict(resume_state["model_state"], strict=True)
+            optimizer.load_state_dict(resume_state["optimizer_state"])
+            scheduler.load_state_dict(resume_state["scheduler_state"])
+            restored_history = saved_training.get("history")
+            if not isinstance(restored_history, list):
+                raise ValueError("SFT resume checkpoint history is malformed")
+            history = restored_history
+            completed_steps = int(saved_training["completed_steps"])
+            if not 0 <= completed_steps <= steps:
+                raise ValueError("SFT resume checkpoint progress is invalid")
+            best_value = saved_training.get("best_validation_loss")
+            best_validation_loss = (
+                math.inf if best_value is None else float(best_value)
+            )
+            evaluations_without_improvement = int(
+                saved_training.get("evaluations_without_improvement", 0)
+            )
+            if saved_training.get("has_best_checkpoint") is True:
+                saved_best = saved.get("model_state")
+                if not isinstance(saved_best, dict):
+                    raise ValueError("SFT resume checkpoint best weights are missing")
+                best_model_state = saved_best
+            generator.set_state(rng_state["sampling_generator"])
+            torch.set_rng_state(rng_state["torch_cpu"])
+            cuda_states = rng_state.get("torch_cuda", [])
+            if cuda_states and target_device.type == "cuda":
+                if len(cuda_states) != torch.cuda.device_count():
+                    raise ValueError("SFT resume CUDA device count does not match")
+                torch.cuda.set_rng_state_all(cuda_states)
+        except (KeyError, TypeError, RuntimeError, OverflowError) as error:
+            raise ValueError("SFT resume checkpoint state is invalid") from error
+
+    def clone_model_state() -> dict[str, Tensor]:
+        return {
+            name: value.detach().cpu().clone()
+            for name, value in model.state_dict().items()
+        }
+
+    def capture_rng_state() -> dict[str, Any]:
+        return {
+            "torch_cpu": torch.get_rng_state(),
+            "torch_cuda": (
+                torch.cuda.get_rng_state_all() if torch.cuda.is_available() else []
+            ),
+            "sampling_generator": generator.get_state(),
+        }
+
+    def save_progress() -> None:
+        training_metadata: dict[str, Any] = {
+            "task": "assistant-response-supervised-finetuning",
+            "completed_steps": completed_steps,
+            "total_steps": steps,
+            "best_validation_loss": (
+                None if math.isinf(best_validation_loss) else best_validation_loss
+            ),
+            "evaluations_without_improvement": evaluations_without_improvement,
+            "has_best_checkpoint": best_model_state is not None,
+            "corpus_sha256": corpus_sha256,
+            "assistant_only_loss": True,
+            "history": history,
+            "seed": seed,
+            "run_config": run_config,
+        }
+        payload: dict[str, Any] = {
+            "format_version": 2,
+            "architecture": asdict(architecture),
+            "model_state": (
+                best_model_state if best_model_state is not None else clone_model_state()
+            ),
+            "tokenizer": _tokenizer_metadata(tokenizer),
+            "training": training_metadata,
+            "resume_state": {
+                "model_state": clone_model_state(),
+                "optimizer_state": optimizer.state_dict(),
+                "scheduler_state": scheduler.state_dict(),
+                "rng_state": capture_rng_state(),
+            },
+        }
+        temporary = checkpoint.with_name(checkpoint.name + ".tmp")
+        torch.save(payload, temporary)
+        temporary.replace(checkpoint)
+
+    start_step = completed_steps
+    end_step = (
+        steps
+        if max_steps_per_run is None
+        else min(steps, completed_steps + max_steps_per_run)
+    )
+    if (
+        early_stopping_patience is not None
+        and evaluations_without_improvement >= early_stopping_patience
+    ):
+        end_step = start_step
+
+    for step in range(start_step + 1, end_step + 1):
         model.train()
         optimizer.zero_grad(set_to_none=True)
         sample_indices = torch.randint(
@@ -295,6 +438,7 @@ def train_on_conversations(
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         scheduler.step()
+        completed_steps = step
 
         if step % eval_interval == 0 or step == steps:
             validation_loss = _evaluate(
@@ -316,38 +460,19 @@ def train_on_conversations(
             )
             if validation_loss < best_validation_loss:
                 best_validation_loss = validation_loss
+                best_model_state = clone_model_state()
                 evaluations_without_improvement = 0
-                payload: dict[str, Any] = {
-                    "format_version": 2,
-                    "architecture": asdict(architecture),
-                    "model_state": model.state_dict(),
-                    "tokenizer": _tokenizer_metadata(tokenizer),
-                    "training": {
-                        "task": "assistant-response-supervised-finetuning",
-                        "completed_steps": step,
-                        "total_steps": steps,
-                        "best_validation_loss": best_validation_loss,
-                        "corpus_sha256": corpus_sha256,
-                        "assistant_only_loss": True,
-                        "history": history,
-                        "seed": seed,
-                    },
-                }
-                temporary = checkpoint.with_name(checkpoint.name + ".tmp")
-                torch.save(payload, temporary)
-                temporary.replace(checkpoint)
             else:
                 evaluations_without_improvement += 1
+            save_progress()
             if (
                 early_stopping_patience is not None
                 and evaluations_without_improvement >= early_stopping_patience
             ):
                 break
 
-    if not checkpoint.is_file():
-        raise RuntimeError("training did not produce a finite validation checkpoint")
+    save_progress()
     return history
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(
