@@ -158,8 +158,8 @@ class BPETokenizer:
 
     def save(self, path: str | Path) -> None:
         payload = {
-            "format_version": 1,
             "type": "byte-bpe",
+            "vocab_size": self.vocab_size,
             "merges": [list(pair) for pair in self.merges],
         }
         Path(path).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -167,9 +167,17 @@ class BPETokenizer:
     @classmethod
     def load(cls, path: str | Path) -> BPETokenizer:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        if payload.get("format_version") != 1 or payload.get("type") != "byte-bpe":
+        if payload.get("type") != "byte-bpe":
             raise ValueError("unsupported BPE tokenizer file")
         merges = payload.get("merges")
         if not isinstance(merges, list):
             raise TypeError("tokenizer merges must be a list")
-        return cls(tuple(pair) for pair in merges)
+        tokenizer = cls(tuple(pair) for pair in merges)
+        if (
+            "vocab_size" in payload
+            and payload["vocab_size"] != tokenizer.vocab_size
+        ):
+            raise ValueError("BPE tokenizer vocabulary size is inconsistent")
+        if "format_version" in payload and payload["format_version"] != 1:
+            raise ValueError("unsupported BPE tokenizer file")
+        return tokenizer
