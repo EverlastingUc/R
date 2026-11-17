@@ -41,7 +41,9 @@ def _discover_files(source: Path, output: Path) -> list[Path]:
     return files
 
 
-def _validate_messages(value: Any, *, source: str, line_number: int) -> list[dict[str, str]]:
+def _validate_messages(
+    value: Any, *, source: str, line_number: int
+) -> list[dict[str, str]]:
     location = f"{source}:{line_number}"
     if not isinstance(value, list) or len(value) < 2:
         raise ValueError(f"{location}: messages must contain at least two entries")
@@ -58,7 +60,9 @@ def _validate_messages(value: Any, *, source: str, line_number: int) -> list[dic
         messages.append({"role": role, "content": content})
     roles = {message["role"] for message in messages}
     if "user" not in roles or "assistant" not in roles:
-        raise ValueError(f"{location}: each conversation needs user and assistant messages")
+        raise ValueError(
+            f"{location}: each conversation needs user and assistant messages"
+        )
     return messages
 
 
@@ -78,7 +82,9 @@ def _read_conversations(
             decoded = raw.decode("utf-8", errors="strict")
         except UnicodeDecodeError as error:
             raise ValueError(f"conversation file is not valid UTF-8: {path}") from error
-        relative = path.name if source.is_file() else path.relative_to(source).as_posix()
+        relative = (
+            path.name if source.is_file() else path.relative_to(source).as_posix()
+        )
         for line_number, line in enumerate(decoded.splitlines(), 1):
             if not line.strip():
                 skipped.append(
@@ -315,7 +321,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Prepare conversation data for Entropy supervised fine-tuning."
     )
-    parser.add_argument("input", type=Path, help="JSONL file or directory of JSONL files")
+    parser.add_argument(
+        "input", type=Path, help="JSONL file or directory of JSONL files"
+    )
     parser.add_argument("output", type=Path, help="output directory")
     parser.add_argument("--validation-fraction", type=float, default=0.1)
     parser.add_argument("--test-fraction", type=float, default=0.1)
