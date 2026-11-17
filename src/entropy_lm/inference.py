@@ -25,15 +25,25 @@ def load_model_checkpoint(
     state = checkpoint.get("model_state")
     if not isinstance(architecture, dict) or not isinstance(state, dict):
         raise ValueError("checkpoint is missing architecture or model weights")
+    tokenizer_metadata = checkpoint.get("tokenizer")
+    if tokenizer_metadata != {
+        "type": "utf8-byte",
+        "vocab_size": ByteTokenizer.vocab_size,
+    }:
+        raise ValueError("checkpoint tokenizer metadata is incompatible")
     try:
         config = TransformerConfig(**architecture)
     except (TypeError, ValueError) as error:
         raise ValueError("checkpoint architecture is invalid") from error
+    if config.vocab_size != ByteTokenizer.vocab_size:
+        raise ValueError("checkpoint vocabulary does not match the byte tokenizer")
     model = CausalLanguageModel(config).to(device)
     try:
         model.load_state_dict(state, strict=True)
     except (RuntimeError, TypeError) as error:
-        raise ValueError("checkpoint model weights do not match architecture") from error
+        raise ValueError(
+            "checkpoint model weights do not match architecture"
+        ) from error
     model.eval()
     return model
 
@@ -49,7 +59,11 @@ def generate_text(
     """Generate text from a prompt, replacing incomplete generated UTF-8."""
     tokenizer = ByteTokenizer()
     prompt_ids = tokenizer.encode(prompt) or [BOS_ID]
-    input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=next(model.parameters()).device)
+    input_ids = torch.tensor(
+        [prompt_ids],
+        dtype=torch.long,
+        device=next(model.parameters()).device,
+    )
     generated = model.generate(
         input_ids,
         max_new_tokens=max_new_tokens,
