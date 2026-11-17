@@ -4,7 +4,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from entropy_lm.model import CausalLanguageModel, TransformerConfig
+from entropy_lm.model import CausalLanguageModel, TransformerConfig  # noqa: E402
 
 
 def test_transformer_forward_loss_and_generation() -> None:
