@@ -97,3 +97,50 @@ def test_transformer_rejects_all_masked_targets() -> None:
     targets = torch.full_like(tokens, -100)
     with pytest.raises(ValueError, match="no supervised tokens"):
         model(tokens, targets)
+
+
+def test_generation_stops_after_eos_token(monkeypatch) -> None:
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=16,
+            context_length=4,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+        )
+    )
+    tokens = torch.tensor([[1, 2]], dtype=torch.long)
+
+    def sample_eos(probabilities, *, num_samples):
+        return torch.full(
+            (probabilities.shape[0], num_samples),
+            3,
+            dtype=torch.long,
+            device=probabilities.device,
+        )
+
+    monkeypatch.setattr(torch, "multinomial", sample_eos)
+    generated = model.generate(
+        tokens, max_new_tokens=8, top_k=1, eos_token_id=3
+    )
+    assert generated.shape == (1, 3)
+    assert generated[0, -1].item() == 3
+
+
+def test_generation_rejects_invalid_eos_token():
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=16,
+            context_length=4,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+        )
+    )
+    with pytest.raises(ValueError, match="eos_token_id"):
+        model.generate(
+            torch.tensor([[1, 2]], dtype=torch.long),
+            max_new_tokens=1,
+            eos_token_id=16,
+        )
