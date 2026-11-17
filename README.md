@@ -81,7 +81,7 @@ Run the full research and application test suite with:
 python -m pytest -q
 ```
 
-Entropy's small research networks are not represented as general-purpose language models. Valence currently uses an independently installed local language model through Ollama.
+Entropy's NumPy research networks are not represented as general-purpose language models. The experimental `entropy_lm` package now contains a byte-level tokenizer and an optional PyTorch decoder-only Transformer foundation (`python -m pip install -e ".[llm]"`). This is an untrained research architecture, not a ChatGPT-class model. Valence currently uses an independently installed local language model through Ollama.
 
 ## Local Valence API (developer preview)
 
