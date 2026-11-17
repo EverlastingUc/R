@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 from proton_i.valence.backend import ChatBackend
 from proton_i.valence.engine import ValenceEngine, ValenceError
+from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy
 
 DEFAULT_API_HOST = "127.0.0.1"
 DEFAULT_API_PORT = 8765
@@ -38,10 +39,14 @@ class ValenceHTTPServer(ThreadingHTTPServer):
         server_address: tuple[str, int],
         backend: ChatBackend,
         max_sessions: int,
+        registry: CapabilityRegistry | None = None,
+        tool_policy: ExecutionPolicy | None = None,
     ) -> None:
         """Create a loopback server and its isolated conversation registry."""
         self.backend = backend
         self.max_sessions = max_sessions
+        self.registry = registry
+        self.tool_policy = tool_policy or ExecutionPolicy()
         self.sessions: dict[str, _Conversation] = {}
         self.sessions_lock = RLock()
         super().__init__(server_address, ValenceRequestHandler)
@@ -52,7 +57,14 @@ class ValenceHTTPServer(ThreadingHTTPServer):
             if len(self.sessions) >= self.max_sessions:
                 return None
             session_id = secrets.token_urlsafe(24)
-            session = _Conversation(engine=ValenceEngine(self.backend), lock=Lock())
+            session = _Conversation(
+                engine=ValenceEngine(
+                    self.backend,
+                    registry=self.registry,
+                    tool_policy=self.tool_policy,
+                ),
+                lock=Lock(),
+            )
             self.sessions[session_id] = session
             return session_id, session
 
@@ -171,7 +183,20 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
                 {
                     "local_chat": "supported",
                     "in_memory_conversations": "supported",
-                    "web_search": "not_integrated",
+                    "model_tool_calling": (
+                        "supported"
+                        if callable(getattr(self.server.backend, "complete_turn", None))
+                        else "text_only"
+                    ),
+                    "web_search": (
+                        "enabled"
+                        if "search_web" in self.server.tool_policy.allowed_tools
+                        else (
+                            "disabled_by_policy"
+                            if self.server.registry is not None
+                            else "not_enabled"
+                        )
+                    ),
                     "mathematics_engine": "not_integrated",
                     "file_understanding": "not_integrated",
                     "artifact_creation": "not_integrated",
@@ -269,6 +294,8 @@ def create_server(
     host: str = DEFAULT_API_HOST,
     port: int = DEFAULT_API_PORT,
     max_sessions: int = MAX_SESSIONS,
+    registry: CapabilityRegistry | None = None,
+    tool_policy: ExecutionPolicy | None = None,
 ) -> ValenceHTTPServer:
     """Create a Valence API server bound exclusively to an IPv4 loopback address."""
     if not isinstance(host, str):
@@ -289,7 +316,19 @@ def create_server(
         raise ValueError("max_sessions must be a positive integer")
     if not callable(getattr(backend, "complete", None)):
         raise TypeError("backend must provide a complete(messages) method")
-    return ValenceHTTPServer((host, port), backend, max_sessions)
+    if registry is not None and not isinstance(registry, CapabilityRegistry):
+        raise TypeError("registry must be a CapabilityRegistry or None")
+    if tool_policy is not None and not isinstance(tool_policy, ExecutionPolicy):
+        raise TypeError("tool_policy must be an ExecutionPolicy or None")
+    if registry is None and tool_policy is not None and tool_policy.allowed_tools:
+        raise ValueError("tool_policy cannot allow tools without a registry")
+    return ValenceHTTPServer(
+        (host, port),
+        backend,
+        max_sessions,
+        registry=registry,
+        tool_policy=tool_policy,
+    )
 
 
 def main() -> int:
@@ -298,6 +337,8 @@ def main() -> int:
     import os
 
     from proton_i.valence.backend import DEFAULT_MODEL, OllamaChatBackend
+    from proton_i.valence.integrations.gluons import register_gluons_tool
+    from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy
 
     parser = argparse.ArgumentParser(
         prog="valence-api",
@@ -309,10 +350,26 @@ def main() -> int:
         help="installed Ollama model name",
     )
     parser.add_argument("--port", type=int, default=DEFAULT_API_PORT)
+    parser.add_argument(
+        "--enable-web-search",
+        action="store_true",
+        help="allow the model to call Gluons website search",
+    )
     arguments = parser.parse_args()
 
     backend = OllamaChatBackend(model=arguments.model)
-    server = create_server(backend, port=arguments.port)
+    registry = None
+    tool_policy = None
+    if arguments.enable_web_search:
+        registry = CapabilityRegistry()
+        register_gluons_tool(registry)
+        tool_policy = ExecutionPolicy(frozenset({"search_web"}))
+    server = create_server(
+        backend,
+        port=arguments.port,
+        registry=registry,
+        tool_policy=tool_policy,
+    )
     print(f"Valence API listening on http://{DEFAULT_API_HOST}:{arguments.port}")
     try:
         server.serve_forever()

@@ -11,6 +11,7 @@ import pytest
 
 from proton_i.valence.api import create_server
 from proton_i.valence.backend import ChatMessage
+from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy, ToolDefinition
 
 
 class RecordingBackend:
@@ -72,7 +73,8 @@ def test_health_and_capabilities_endpoints(running_api) -> None:
     status, capabilities = request_json(server, "GET", "/v1/capabilities")
     assert status == 200
     assert capabilities["local_chat"] == "supported"
-    assert capabilities["web_search"] == "not_integrated"
+    assert capabilities["web_search"] == "not_enabled"
+    assert capabilities["model_tool_calling"] == "text_only"
 
 
 def test_chat_creates_a_random_session_and_returns_reply(running_api) -> None:
@@ -324,3 +326,38 @@ def test_api_backend_failure_returns_sanitized_error() -> None:
         server.shutdown()
         thread.join(timeout=2.0)
         server.server_close()
+
+
+
+def test_api_passes_explicit_tool_registry_and_policy_to_new_sessions() -> None:
+    registry = CapabilityRegistry()
+    registry.register(
+        ToolDefinition(
+            name="local_lookup",
+            description="A test lookup tool.",
+            parameters=(),
+            handler=lambda _arguments: {"ok": True},
+        )
+    )
+    policy = ExecutionPolicy(frozenset({"local_lookup"}))
+    server = create_server(
+        RecordingBackend(),
+        port=0,
+        registry=registry,
+        tool_policy=policy,
+    )
+    try:
+        _session_id, session = server.create_session()  # type: ignore[misc]
+        assert session.engine.registry is registry
+        assert session.engine.tool_policy == policy
+    finally:
+        server.server_close()
+
+
+def test_api_rejects_tool_policy_without_a_registry() -> None:
+    with pytest.raises(ValueError, match="without a registry"):
+        create_server(
+            RecordingBackend(),
+            port=0,
+            tool_policy=ExecutionPolicy(frozenset({"search_web"})),
+        )

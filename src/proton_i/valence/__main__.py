@@ -12,6 +12,8 @@ from proton_i.valence.backend import (
     OllamaChatBackend,
 )
 from proton_i.valence.engine import ValenceEngine, ValenceError
+from proton_i.valence.integrations.gluons import register_gluons_tool
+from proton_i.valence.tools import CapabilityRegistry, ExecutionPolicy
 
 
 def main() -> int:
@@ -36,6 +38,11 @@ def main() -> int:
         default=120.0,
         help="model response timeout in seconds",
     )
+    parser.add_argument(
+        "--enable-web-search",
+        action="store_true",
+        help="allow the model to call Gluons website search",
+    )
     arguments = parser.parse_args()
 
     try:
@@ -47,8 +54,27 @@ def main() -> int:
     except ValueError as error:
         parser.error(str(error))
 
-    assistant = ValenceEngine(backend)
-    print("Valence is ready. Type /reset to clear the conversation or /exit to quit.")
+    registry = None
+    tool_policy = None
+    if arguments.enable_web_search:
+        registry = CapabilityRegistry()
+        register_gluons_tool(registry)
+        tool_policy = ExecutionPolicy(frozenset({"search_web"}))
+
+    assistant = ValenceEngine(
+        backend,
+        registry=registry,
+        tool_policy=tool_policy,
+    )
+    search_status = (
+        " Website search is enabled."
+        if arguments.enable_web_search
+        else " Website search is disabled; use --enable-web-search to opt in."
+    )
+    print(
+        "Valence is ready. Type /reset to clear the conversation or /exit to quit."
+        + search_status
+    )
 
     while True:
         try:
