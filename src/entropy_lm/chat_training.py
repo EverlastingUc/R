@@ -20,10 +20,10 @@ from entropy_lm.tokenizer import ByteTokenizer
 from entropy_lm.training import _learning_rate_scale, _tokenizer_metadata
 
 
-def _load_chat_dataset(
-    directory: Path, *, context_length: int
-) -> tuple[Tensor, Tensor, Tensor, Tensor, ByteTokenizer | BPETokenizer, str]:
-    """Validate prepared chat data and materialize supervised causal windows."""
+def _load_chat_tokenizer(
+    directory: Path,
+) -> tuple[ByteTokenizer | BPETokenizer, str, str]:
+    """Validate prepared chat metadata and reconstruct its tokenizer."""
     manifest_path = directory / "manifest.json"
     tokenizer_path = directory / "tokenizer.json"
     if not manifest_path.is_file() or not tokenizer_path.is_file():
@@ -57,75 +57,101 @@ def _load_chat_dataset(
     if _tokenizer_metadata(tokenizer) != metadata:
         raise ValueError("prepared chat tokenizer metadata is incompatible")
 
-    def load_windows(split: str) -> tuple[Tensor, Tensor]:
-        path = directory / f"{split}.jsonl"
-        if not path.is_file():
-            raise FileNotFoundError(f"prepared chat data is missing {path.name}")
-        inputs: list[list[int]] = []
-        targets: list[list[int]] = []
-        for line_number, line in enumerate(
-            path.read_text(encoding="utf-8").splitlines(), 1
+    return (
+        tokenizer,
+        fingerprint,
+        hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    )
+
+
+def _load_chat_windows(
+    directory: Path,
+    split: str,
+    tokenizer: ByteTokenizer | BPETokenizer,
+    fingerprint: str,
+    *,
+    context_length: int,
+) -> tuple[Tensor, Tensor]:
+    """Read and validate one split, then create masked next-token windows."""
+    path = directory / f"{split}.jsonl"
+    if not path.is_file():
+        raise FileNotFoundError(f"prepared chat data is missing {path.name}")
+    inputs: list[list[int]] = []
+    targets: list[list[int]] = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), 1
+    ):
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise ValueError(
+                f"invalid {split} JSONL record at line {line_number}"
+            ) from error
+        if not isinstance(record, dict):
+            raise TypeError(f"{split} record at line {line_number} must be an object")
+        if record.get("tokenizer_fingerprint") != fingerprint:
+            raise ValueError(f"{split} record tokenizer fingerprint mismatch")
+        token_ids = record.get("input_ids")
+        labels = record.get("labels")
+        if (
+            not isinstance(token_ids, list)
+            or not isinstance(labels, list)
+            or len(token_ids) != len(labels)
+            or len(token_ids) < 2
+            or any(
+                not isinstance(token_id, int)
+                or isinstance(token_id, bool)
+                or token_id < 0
+                or token_id >= tokenizer.vocab_size
+                for token_id in token_ids
+            )
+            or any(
+                not isinstance(label, int)
+                or isinstance(label, bool)
+                or (label != IGNORE_INDEX and not 0 <= label < tokenizer.vocab_size)
+                for label in labels
+            )
         ):
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError as error:
-                raise ValueError(
-                    f"invalid {split} JSONL record at line {line_number}"
-                ) from error
-            if not isinstance(record, dict):
-                raise TypeError(
-                    f"{split} record at line {line_number} must be an object"
-                )
-            if record.get("tokenizer_fingerprint") != fingerprint:
-                raise ValueError(f"{split} record tokenizer fingerprint mismatch")
-            token_ids = record.get("input_ids")
-            labels = record.get("labels")
-            if (
-                not isinstance(token_ids, list)
-                or not isinstance(labels, list)
-                or len(token_ids) != len(labels)
-                or len(token_ids) < 2
-                or any(
-                    not isinstance(token_id, int)
-                    or isinstance(token_id, bool)
-                    or token_id < 0
-                    or token_id >= tokenizer.vocab_size
-                    for token_id in token_ids
-                )
-                or any(
-                    not isinstance(label, int)
-                    or isinstance(label, bool)
-                    or (label != IGNORE_INDEX and not 0 <= label < tokenizer.vocab_size)
-                    for label in labels
-                )
-            ):
-                raise ValueError(f"{split} record contains invalid token IDs or labels")
-            if any(
-                label != IGNORE_INDEX and label != token_id
-                for token_id, label in zip(token_ids, labels)
-            ):
-                raise ValueError(f"{split} labels do not align with input token IDs")
+            raise ValueError(f"{split} record contains invalid token IDs or labels")
+        if any(
+            label != IGNORE_INDEX and label != token_id
+            for token_id, label in zip(token_ids, labels)
+        ):
+            raise ValueError(f"{split} labels do not align with input token IDs")
 
-            for start in range(0, len(token_ids) - 1, context_length):
-                end = min(start + context_length, len(token_ids) - 1)
-                window_inputs = token_ids[start:end]
-                window_targets = labels[start + 1 : end + 1]
-                if not any(label != IGNORE_INDEX for label in window_targets):
-                    continue
-                padding = context_length - len(window_inputs)
-                inputs.append(window_inputs + [tokenizer.eos_id] * padding)
-                targets.append(window_targets + [IGNORE_INDEX] * padding)
+        for window_start in range(0, len(token_ids) - 1, context_length):
+            window_end = min(window_start + context_length, len(token_ids) - 1)
+            window_inputs = token_ids[window_start:window_end]
+            window_targets = labels[window_start + 1 : window_end + 1]
+            if not any(label != IGNORE_INDEX for label in window_targets):
+                continue
+            padding = context_length - len(window_inputs)
+            inputs.append(window_inputs + [tokenizer.eos_id] * padding)
+            targets.append(window_targets + [IGNORE_INDEX] * padding)
 
-        if not inputs:
-            raise ValueError(f"{split} split contains no supervised next-token windows")
-        return (
-            torch.tensor(inputs, dtype=torch.long),
-            torch.tensor(targets, dtype=torch.long),
-        )
+    if not inputs:
+        raise ValueError(f"{split} split contains no supervised next-token windows")
+    return (
+        torch.tensor(inputs, dtype=torch.long),
+        torch.tensor(targets, dtype=torch.long),
+    )
 
-    train_inputs, train_targets = load_windows("train")
-    validation_inputs, validation_targets = load_windows("validation")
-    corpus_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+def _load_chat_dataset(
+    directory: Path, *, context_length: int
+) -> tuple[Tensor, Tensor, Tensor, Tensor, ByteTokenizer | BPETokenizer, str]:
+    """Validate prepared chat data and materialize train/validation windows."""
+    tokenizer, fingerprint, corpus_hash = _load_chat_tokenizer(directory)
+    train_inputs, train_targets = _load_chat_windows(
+        directory, "train", tokenizer, fingerprint, context_length=context_length
+    )
+    validation_inputs, validation_targets = _load_chat_windows(
+        directory,
+        "validation",
+        tokenizer,
+        fingerprint,
+        context_length=context_length,
+    )
     return (
         train_inputs,
         train_targets,
@@ -134,7 +160,6 @@ def _load_chat_dataset(
         tokenizer,
         corpus_hash,
     )
-
 
 @torch.no_grad()
 def _evaluate(
