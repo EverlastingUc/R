@@ -226,9 +226,7 @@ def test_sft_resume_rejects_mismatched_dataset_and_training_config(tmp_path):
         "eval_interval": 1,
         "checkpoint_path": checkpoint,
     }
-    train_on_conversations(
-        prepared, max_steps_per_run=1, **options
-    )
+    train_on_conversations(prepared, max_steps_per_run=1, **options)
     with pytest.raises(ValueError, match="training configuration"):
         train_on_conversations(
             prepared,
@@ -239,6 +237,4 @@ def test_sft_resume_rejects_mismatched_dataset_and_training_config(tmp_path):
     manifest = prepared / "manifest.json"
     manifest.write_text(manifest.read_text(encoding="utf-8") + " ", encoding="utf-8")
     with pytest.raises(ValueError, match="corpus does not match"):
-        train_on_conversations(
-            prepared, resume_from=checkpoint, **options
-        )
+        train_on_conversations(prepared, resume_from=checkpoint, **options)
