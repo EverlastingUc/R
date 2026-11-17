@@ -22,9 +22,7 @@ def test_regression_network_learns_nonlinear_function() -> None:
     initial_validation_mse = mean_squared_error(
         network.forward(validation_x), validation_y
     )
-    history = trainer.fit(
-        train_x, train_y, validation_x, validation_y, epochs=220
-    )
+    history = trainer.fit(train_x, train_y, validation_x, validation_y, epochs=220)
     test_mse = mean_squared_error(network.forward(test_x), test_y)
 
     assert history[-1].training_loss < history[0].training_loss
