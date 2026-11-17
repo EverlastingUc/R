@@ -46,7 +46,7 @@ def evaluate_chat_test_set(
 
     tokenizer, fingerprint, corpus_sha256 = _load_chat_tokenizer(dataset_directory)
     model = load_model_checkpoint(checkpoint_path, device=device)
-    if _tokenizer_metadata(model) != _tokenizer_metadata(tokenizer):
+    if checkpoint.get("tokenizer") != _tokenizer_metadata(tokenizer):
         raise ValueError("test dataset tokenizer does not match the SFT checkpoint")
     inputs, targets = _load_chat_windows(
         dataset_directory,
