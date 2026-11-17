@@ -2,7 +2,7 @@
 
 **Product role:** Proton-I's user-facing general-purpose AI assistant  
 **Product inspiration:** ChatGPT-style conversation and DesignArena-style creative workspace  
-**Status:** VQ-A01 through VQ-A03 implemented and CI-verified; broader assistant capabilities remain planned
+**Status:** VQ-A01 through VQ-A04 implemented and CI-verified; broader assistant capabilities remain planned
 
 ## 1. Product definition
 
@@ -64,6 +64,7 @@ The first implementation should establish stable boundaries before adding more c
 - `OllamaChatBackend`: initial local inference adapter, using Ollama's non-streaming `POST /api/chat` interface.
 - `CapabilityRegistry` (implemented): stores application-owned tool definitions and exposes only schemas allowed by the current execution policy.
 - `ToolExecutor` (implemented): validates typed arguments, applies deny-by-default allowlists and explicit approval gates, enforces input/output size limits, and returns structured redacted results. Each trusted handler must enforce its own native timeout for blocking operations.
+- `GluonsSearchTool` (implemented): registers Gluons retrieval as a bounded, source-attributed tool whose snippets are explicitly labeled untrusted web content.
 - `ConversationStore` (planned): durable user/session history with access controls and deletion semantics.
 - `CreationWorkspace` (planned): task-specific artifact pipelines; each mode has a defined input/output format.
 - `ModelRouter` (planned): selects among configured providers based on capability, user choice, latency and cost constraints.
@@ -99,10 +100,10 @@ The current prototype supports:
 It does not yet support:
 - Authentication, user accounts, durable sessions, session expiry, or database persistence. API sessions disappear when the server process exits.
 - Public-network hosting, HTTPS termination, cross-origin browser access, or CORS preflight handling. Keep the developer-preview API on loopback.
-- Web search orchestration (Gluons remains separate until a safe tool adapter is added).
+- Automatic model-driven web search is not yet implemented. Gluons has a registered, application-callable adapter, but the application must explicitly allow `search_web`; the model does not yet invoke tools automatically.
 - Mathematics execution (math subsystem implementation is a later Valence milestone).
 - Persistent accounts, cloud sync, memory, uploads, or file parsing.
-- Model-driven tool calling is not yet connected to the executor, and no external tools are registered by default. The registry/executor is application-side groundwork only.
+- Model-driven tool calling is not yet connected to the executor. Gluons can be registered by the application, but it is not auto-invoked by the model; the application must explicitly allow `search_web` in an execution policy. No external tools are enabled automatically.
 - Arbitrary code execution, image/video/audio generation, or the creation modes above.
 - Model comparisons, voting, or leaderboards.
 - A trained Proton-I language model. This stage calls an external local model runtime; Entropy's research network is not yet a capable conversational LLM.
@@ -112,15 +113,16 @@ It does not yet support:
 1. **VQ-A01 — Local conversational core:** *implemented* backend contract, Ollama adapter, bounded conversation engine, CLI, tests.
 2. **VQ-A02 — Application API:** *implemented* typed JSON routes, loopback-only HTTP service, health/capabilities, session handling and request limits.
 3. **VQ-A03 — Tool contract:** *implemented* — typed capability registry, deny-by-default policy checks, approval gates, structured tool results, and output limits; no arbitrary code execution.
-4. **VQ-A04 — Gluons integration:** retrieval tool returning source-attributed snippets.
-5. **VQ-A05 — Mathematical subsystem:** safe expression parsing, exact arithmetic, then the full mathematics roadmap in `VALENCE_MATH_SPEC.md`.
-6. **VQ-A06 — Conversation persistence:** storage schema, per-user isolation, export/delete, retention.
-7. **VQ-A07 — File workflows:** upload limits, content-type checks, safe parsers, citations to supplied sources.
-8. **VQ-A08 — Frontend chat workspace:** streaming, markdown-safe rendering, conversation controls, accessibility.
-9. **VQ-A09 — Coding sandbox:** isolated execution with no network, CPU/memory limits, timeouts and filesystem boundaries.
-10. **VQ-A10 — Creation modes:** implement each output type as a separately tested artifact pipeline.
-11. **VQ-A11 — Multi-model arena:** provider routing, blind pairwise comparisons, preference data and leaderboard methodology.
-12. **VQ-A12 — Evaluation and release:** quality benchmarks, safety tests, latency/cost reports, privacy and deployment review.
+4. **VQ-A04 — Gluons integration:** *implemented adapter* — bounded, source-attributed retrieval with untrusted-content labeling and explicit policy permission; automatic model invocation is still pending.
+5. **VQ-A05 — Model tool-call orchestration:** connect Ollama's tool-call response protocol to the registry/executor, validate each call, cap tool rounds, and return structured tool results to the model.
+6. **VQ-A06 — Mathematical subsystem:** safe expression parsing, exact arithmetic, then the full mathematics roadmap in `VALENCE_MATH_SPEC.md`.
+7. **VQ-A07 — Conversation persistence:** storage schema, per-user isolation, export/delete, retention.
+8. **VQ-A08 — File workflows:** upload limits, content-type checks, safe parsers, citations to supplied sources.
+9. **VQ-A09 — Frontend chat workspace:** streaming, markdown-safe rendering, conversation controls, accessibility.
+10. **VQ-A10 — Coding sandbox:** isolated execution with no network, CPU/memory limits, timeouts and filesystem boundaries.
+11. **VQ-A11 — Creation modes:** implement each output type as a separately tested artifact pipeline.
+12. **VQ-A12 — Multi-model arena:** provider routing, blind pairwise comparisons, preference data and leaderboard methodology.
+13. **VQ-A13 — Evaluation and release:** quality benchmarks, safety tests, latency/cost reports, privacy and deployment review.
 
 Each milestone gets its own meaningful commit(s), regression tests, changelog/research-log entry, and verified CI run. Do not create empty commits to inflate the count.
 

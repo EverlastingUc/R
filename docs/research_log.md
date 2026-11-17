@@ -344,3 +344,29 @@
 - **Next:** VQ-A04, integrate Gluons as a narrowly scoped, source-attributed
   retrieval tool under an explicit policy and bounded query/result sizes.
 
+
+
+## 2026-11-17 — Valence VQ-A04: Gluons retrieval adapter verified
+
+- **Done:** Added `create_gluons_tool` and `register_gluons_tool`. The tool
+  accepts one bounded text query, requests at most five Gluons search results,
+  validates HTTP(S) source URLs (rejecting embedded credentials and invalid
+  ports), caps title/snippet/source lengths, and returns source-attributed
+  result objects. Every response marks retrieved text as
+  `untrusted_web_content`.
+- **Policy boundary:** Registering the tool does not enable it. The executor
+  still requires an explicit policy allowlist containing `search_web`.
+  Search failures are converted into a sanitized, application-authored
+  `ToolHandlerError`; generic handler exceptions remain redacted.
+- **Evidence:** GitHub Actions [run 44123523142](https://github.com/EverlastingUc/R/actions/runs/44123523142) passed.
+  Black: 61 files unchanged; Ruff: all checks passed; pytest: 224 passed in
+  9.32 seconds. Tests use an injected fake search provider; no live network
+  request is made in CI.
+- **Limitations:** Valence's local model still does not automatically request
+  or execute tool calls. Applications can explicitly register and permit the
+  Gluons tool, but model-facing tool-call orchestration remains a separate
+  milestone.
+- **Next:** VQ-A05, add a bounded Ollama tool-call loop that validates each
+  model request, checks registry/policy, executes allowed tools, and feeds
+  structured results back to the model. Limit tool rounds and never evaluate
+  model-generated code.
