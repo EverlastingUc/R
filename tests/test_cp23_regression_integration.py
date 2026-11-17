@@ -18,10 +18,10 @@ def test_regression_network_learns_nonlinear_function() -> None:
         ["relu", "tanh", "identity"],
         seed=2026,
     )
-    trainer = Trainer(
-        network, Adam(learning_rate=0.003), batch_size=32, seed=2026
+    trainer = Trainer(network, Adam(learning_rate=0.003), batch_size=32, seed=2026)
+    initial_validation_mse = mean_squared_error(
+        network.forward(validation_x), validation_y
     )
-    initial_validation_mse = mean_squared_error(network.forward(validation_x), validation_y)
     history = trainer.fit(
         train_x, train_y, validation_x, validation_y, epochs=220
     )
