@@ -51,7 +51,9 @@ def _read_documents(
             text = raw.decode("utf-8", errors="strict")
         except UnicodeDecodeError as error:
             raise ValueError(f"corpus file is not valid UTF-8: {path}") from error
-        relative = (\n            path.name if source.is_file() else path.relative_to(source).as_posix()\n        )
+        relative = (
+            path.name if source.is_file() else path.relative_to(source).as_posix()
+        )
         digest = _sha256(raw)
         if not text.strip():
             skipped.append({"path": relative, "reason": "empty_or_whitespace"})
