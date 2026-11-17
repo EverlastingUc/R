@@ -12,6 +12,7 @@ from proton_i.valence.backend import (
     ChatTurn,
     ModelToolCall,
 )
+from proton_i.valence.mathematics import MathematicsEngine, MathematicsError
 from proton_i.valence.tools import (
     CapabilityRegistry,
     ExecutionPolicy,
@@ -99,6 +100,7 @@ class ValenceEngine:
         self.tool_executor = ToolExecutor(registry) if registry is not None else None
         self.max_tool_rounds = max_tool_rounds
         self.max_tool_calls = max_tool_calls
+        self.mathematics = MathematicsEngine()
         self._history: list[ChatMessage] = []
 
     @property
@@ -118,8 +120,23 @@ class ValenceEngine:
 
         previous_messages = self._trim_history(self._history)
         user_message = ChatMessage("user", cleaned_prompt)
-        request_messages = [self.system_message, *previous_messages, user_message]
 
+        try:
+            mathematics_result = self.mathematics.solve_prompt(cleaned_prompt)
+        except MathematicsError as error:
+            raise ValenceError(str(error)) from error
+
+        if mathematics_result is not None:
+            cleaned_response = mathematics_result.answer
+            if len(cleaned_response) > MAX_OUTPUT_CHARS:
+                raise ValenceError("The mathematical response exceeded the output size limit.")
+            assistant_message = ChatMessage("assistant", cleaned_response)
+            self._history = self._trim_history(
+                [*previous_messages, user_message, assistant_message]
+            )
+            return cleaned_response
+
+        request_messages = [self.system_message, *previous_messages, user_message]
         try:
             response = self._complete(request_messages)
         except BackendError as error:

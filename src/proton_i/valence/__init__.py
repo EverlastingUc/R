@@ -8,6 +8,11 @@ from proton_i.valence.backend import (
     OllamaChatBackend,
 )
 from proton_i.valence.engine import ValenceEngine, ValenceError
+from proton_i.valence.mathematics import (
+    MathematicsEngine,
+    MathematicsError,
+    MathematicsResult,
+)
 
 __all__ = [
     "DEFAULT_MODEL",
@@ -17,4 +22,7 @@ __all__ = [
     "OllamaChatBackend",
     "ValenceEngine",
     "ValenceError",
+    "MathematicsEngine",
+    "MathematicsError",
+    "MathematicsResult",
 ]
