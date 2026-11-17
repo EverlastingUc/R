@@ -52,7 +52,7 @@ def test_ollama_tool_request_uses_function_schema_and_parses_call(
                         "function": {
                             "name": "search_web",
                             "arguments": {"query": "CSS Grid"},
-                        }
+                        },
                     }
                 ],
             }
@@ -97,9 +97,7 @@ def test_ollama_tool_request_uses_function_schema_and_parses_call(
         }
     ]
     assert turn.content == ""
-    assert turn.tool_calls == (
-        ModelToolCall("search_web", {"query": "CSS Grid"}),
-    )
+    assert turn.tool_calls == (ModelToolCall("search_web", {"query": "CSS Grid"}),)
 
 
 def test_ollama_tool_result_messages_are_serialized_for_followup(
