@@ -7,10 +7,11 @@ runtime dependencies and stores its merge table as portable JSON.
 
 from __future__ import annotations
 
+import itertools
 import json
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 BOS_ID = 256
 EOS_ID = 257
@@ -51,7 +52,7 @@ class BPETokenizer:
         *,
         vocab_size: int = 1000,
         min_frequency: int = 2,
-    ) -> "BPETokenizer":
+    ) -> BPETokenizer:
         """Learn up to vocab_size tokens from UTF-8 text using pair frequency."""
         if vocab_size < BASE_VOCAB_SIZE:
             raise ValueError(f"vocab_size must be at least {BASE_VOCAB_SIZE}")
@@ -71,7 +72,7 @@ class BPETokenizer:
         while next_id < vocab_size:
             counts: Counter[tuple[int, int]] = Counter()
             for sequence in sequences:
-                counts.update(zip(sequence, sequence[1:]))
+                counts.update(itertools.pairwise(sequence))
             if not counts:
                 break
             best_pair, frequency = min(
@@ -170,5 +171,5 @@ class BPETokenizer:
             raise ValueError("unsupported BPE tokenizer file")
         merges = payload.get("merges")
         if not isinstance(merges, list):
-            raise ValueError("tokenizer merges must be a list")
+            raise TypeError("tokenizer merges must be a list")
         return cls(tuple(pair) for pair in merges)
