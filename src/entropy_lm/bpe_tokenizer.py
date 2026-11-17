@@ -114,9 +114,7 @@ class BPETokenizer:
             if not candidates:
                 break
             _, index = min(candidates)
-            merge_id = BASE_VOCAB_SIZE + self._rank[
-                (tokens[index], tokens[index + 1])
-            ]
+            merge_id = BASE_VOCAB_SIZE + self._rank[(tokens[index], tokens[index + 1])]
             tokens[index : index + 2] = [merge_id]
         if add_bos:
             tokens.insert(0, self.bos_id)
@@ -163,9 +161,7 @@ class BPETokenizer:
             "type": "byte-bpe",
             "merges": [list(pair) for pair in self.merges],
         }
-        Path(path).write_text(
-            json.dumps(payload, indent=2) + "\n", encoding="utf-8"
-        )
+        Path(path).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     @classmethod
     def load(cls, path: str | Path) -> "BPETokenizer":
