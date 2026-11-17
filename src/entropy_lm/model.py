@@ -22,13 +22,16 @@ class TransformerConfig:
     dropout: float = 0.1
 
     def __post_init__(self) -> None:
-        if min(
-            self.vocab_size,
-            self.context_length,
-            self.embedding_dim,
-            self.num_heads,
-            self.num_layers,
-        ) < 1:
+        if (
+            min(
+                self.vocab_size,
+                self.context_length,
+                self.embedding_dim,
+                self.num_heads,
+                self.num_layers,
+            )
+            < 1
+        ):
             raise ValueError("Transformer dimensions must be positive")
         if self.embedding_dim % self.num_heads:
             raise ValueError("embedding_dim must be divisible by num_heads")
@@ -101,9 +104,7 @@ class CausalLanguageModel(nn.Module):
             raise ValueError("sequence exceeds configured context_length")
         if input_ids.dtype != torch.long:
             raise TypeError("input_ids must use torch.long token IDs")
-        if torch.any(input_ids < 0) or torch.any(
-            input_ids >= self.config.vocab_size
-        ):
+        if torch.any(input_ids < 0) or torch.any(input_ids >= self.config.vocab_size):
             raise ValueError("input_ids contain an out-of-vocabulary token")
 
         positions = torch.arange(sequence_length, device=input_ids.device)
@@ -127,9 +128,7 @@ class CausalLanguageModel(nn.Module):
                 raise ValueError("targets must have the same shape as input_ids")
             if targets.dtype != torch.long:
                 raise TypeError("targets must use torch.long token IDs")
-            if torch.any(targets < 0) or torch.any(
-                targets >= self.config.vocab_size
-            ):
+            if torch.any(targets < 0) or torch.any(targets >= self.config.vocab_size):
                 raise ValueError("targets contain an out-of-vocabulary token")
             loss = F.cross_entropy(
                 logits.reshape(-1, self.config.vocab_size), targets.reshape(-1)
