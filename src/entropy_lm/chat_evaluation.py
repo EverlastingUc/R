@@ -68,7 +68,7 @@ def evaluate_chat_test_set(
     )
     return {
         "split": "test",
-        "documents_or_conversations": inputs.shape[0],
+        "windows_scored": inputs.shape[0],
         "assistant_targets_scored": assistant_targets,
         "assistant_cross_entropy_nats_per_token": loss,
         "assistant_perplexity": math.exp(min(loss, 80.0)),
