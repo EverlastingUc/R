@@ -505,7 +505,7 @@ def _require_integer(value: NumericValue, operation: str) -> int:
             raise MathematicsError(f"{operation} requires exact integer arguments.")
         return int(value)
     if value.denominator != 1:
-        raise MathematicsError(f"{operation} requires integer arguments.")
+        raise MathematicsError(f"{operation} requires exact integer arguments.")
     return value.numerator
 
 
