@@ -46,7 +46,11 @@ class BPETokenizer:
 
     @classmethod
     def train(
-        cls, texts: Iterable[str], *, vocab_size: int = 1000, min_frequency: int = 2
+        cls,
+        texts: Iterable[str],
+        *,
+        vocab_size: int = 1000,
+        min_frequency: int = 2,
     ) -> "BPETokenizer":
         """Learn up to vocab_size tokens from UTF-8 text using pair frequency."""
         if vocab_size < BASE_VOCAB_SIZE:
