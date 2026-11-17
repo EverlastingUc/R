@@ -112,6 +112,52 @@ def _save_checkpoint(
     os.replace(temporary_path, path)
 
 
+
+def _load_prepared_dataset(directory: Path):
+    """Load LM06 splits and verify tokenizer fingerprints."""
+    manifest_path = directory / "manifest.json"
+    metadata_path = directory / "tokenizer.json"
+    if not manifest_path.is_file() or not metadata_path.is_file():
+        raise FileNotFoundError("prepared corpus requires manifest.json and tokenizer.json")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    fingerprint = hashlib.sha256(json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    if manifest.get("tokenizer_fingerprint") != fingerprint:
+        raise ValueError("prepared corpus tokenizer fingerprint mismatch")
+    if metadata.get("type") == "utf8-byte":
+        tokenizer = ByteTokenizer()
+    elif metadata.get("type") == "byte-bpe":
+        merges = metadata.get("merges")
+        if not isinstance(merges, list):
+            raise ValueError("prepared BPE merge table is malformed")
+        tokenizer = BPETokenizer(tuple(tuple(pair) for pair in merges))
+        if metadata.get("vocab_size") != tokenizer.vocab_size:
+            raise ValueError("prepared BPE vocabulary size mismatch")
+    else:
+        raise ValueError("prepared tokenizer type is unsupported")
+
+    def load_split(name: str) -> Tensor:
+        split_path = directory / (name + ".jsonl")
+        if not split_path.is_file():
+            raise FileNotFoundError("prepared corpus is missing " + split_path.name)
+        values: list[int] = []
+        for line_number, line in enumerate(split_path.read_text(encoding="utf-8").splitlines(), 1):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as error:
+                raise ValueError("invalid JSONL record at line " + str(line_number)) from error
+            if not isinstance(record, dict) or record.get("tokenizer_fingerprint") != fingerprint:
+                raise ValueError("prepared dataset record has invalid metadata")
+            ids = record.get("token_ids")
+            if not isinstance(ids, list) or not ids or any(not isinstance(x, int) or isinstance(x, bool) or x < 0 or x >= tokenizer.vocab_size for x in ids):
+                raise ValueError("prepared dataset contains invalid token IDs")
+            values.extend(ids)
+            values.append(tokenizer.eos_id)
+        return torch.tensor(values, dtype=torch.long)
+
+    return load_split("train"), load_split("validation"), tokenizer, hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+
 def train_language_model(
     text: str,
     *,
