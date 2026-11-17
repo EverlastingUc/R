@@ -53,7 +53,10 @@ def test_chat_evaluator_scores_only_assistant_targets_on_test_split(tmp_path):
 
     result = evaluate_chat_test_set(checkpoint, prepared, batch_size=2)
     assert result["split"] == "test"
-    assert result["assistant_targets_scored"] == manifest["assistant_target_counts"]["test"]
+    assert (
+        result["assistant_targets_scored"]
+        == manifest["assistant_target_counts"]["test"]
+    )
     assert result["assistant_targets_scored"] > 0
     assert torch.isfinite(
         torch.tensor(result["assistant_cross_entropy_nats_per_token"])
