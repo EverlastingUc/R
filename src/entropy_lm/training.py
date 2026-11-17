@@ -367,9 +367,7 @@ def main() -> None:
         bpe_vocab_size=args.bpe_vocab_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         warmup_steps=(
-            min(50, args.steps - 1)
-            if args.warmup_steps is None
-            else args.warmup_steps
+            min(50, args.steps - 1) if args.warmup_steps is None else args.warmup_steps
         ),
         minimum_learning_rate_ratio=args.minimum_learning_rate_ratio,
         early_stopping_patience=args.early_stopping_patience,
