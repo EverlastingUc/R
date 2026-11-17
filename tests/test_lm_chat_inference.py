@@ -6,8 +6,8 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from entropy_lm.chat_inference import format_chat_prompt, generate_chat_response
 from entropy_lm.chat_data import prepare_chat_dataset
+from entropy_lm.chat_inference import format_chat_prompt, generate_chat_response
 from entropy_lm.chat_training import train_on_conversations
 from entropy_lm.inference import load_model_checkpoint
 from entropy_lm.model import TransformerConfig
