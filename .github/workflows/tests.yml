@@ -24,3 +24,6 @@ jobs:
         run: python -m ruff check .
       - name: Run tests, including gradient checks
         run: python -m pytest -q
+      - name: Verify approved CP21 UCI datasets
+        if: github.ref == 'refs/heads/cp21-dataset-engineering'
+        run: python -m experiments.cp21_dataset_pipeline
