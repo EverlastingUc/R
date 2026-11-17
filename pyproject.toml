@@ -20,6 +20,7 @@ entropy-generate = "entropy_lm.inference:main"
 entropy-prepare-corpus = "entropy_lm.corpus:main"
 entropy-evaluate = "entropy_lm.evaluation:main"
 entropy-prepare-chat = "entropy_lm.chat_data:main"
+entropy-chat-train = "entropy_lm.chat_training:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
