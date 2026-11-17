@@ -307,3 +307,29 @@
   installation and execution.
 - **Next:** Run repository CI. Then continue with the API and tool contract before
   adding retrieval, mathematics execution, memory, files or creation pipelines.
+
+
+## 2026-11-17 — Valence VQ-A01: local conversational core verified
+
+- **Done:** Implemented the model-backend contract, local Ollama HTTP adapter,
+  bounded multi-turn conversation engine, reset behavior and interactive CLI.
+  The backend accepts only a loopback Ollama URL and validates message sizes,
+  response JSON and non-empty assistant content.
+- **Evidence:** GitHub Actions run 44118599371 passed. Black: 54 files unchanged;
+  Ruff: all checks passed; pytest: 173 passed.
+- **Limitations:** CI uses mocked model HTTP responses. A real local model has
+  not yet been installed or run in this environment. Conversation history is
+  process-local memory and disappears when the CLI exits.
+- **Next:** VQ-A02, expose the same engine through a loopback-only JSON API.
+
+## 2026-11-17 — Valence VQ-A02: loopback HTTP API implementation
+
+- **Done:** Added a threaded local API with `/health`, `/v1/capabilities`,
+  `/v1/chat` and `/v1/reset`. Requests are JSON-only and size bounded;
+  browser origins must match the loopback API origin; conversations are
+  isolated by random session IDs and capped in memory.
+- **Security boundary:** Server binds only to IPv4 loopback, limits JSON bodies
+  to 16 KB, limits active sessions, avoids logging prompts, and does not
+  provide public-network access, user accounts, or persistent storage.
+- **Evidence:** Automated loopback HTTP tests added. Final CI result pending.
+- **Next:** Run formatting, lint and full tests; then prepare the API report.

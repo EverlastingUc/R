@@ -76,3 +76,27 @@ python -m pytest -q
 ```
 
 Entropy's small research networks are not represented as general-purpose language models. Valence currently uses an independently installed local language model through Ollama.
+
+## Local Valence API (developer preview)
+
+Start the local HTTP service in a second PowerShell window:
+
+```powershell
+valence-api --port 8765
+```
+
+The API binds only to `127.0.0.1`. It currently exposes `GET /health`,
+`GET /v1/capabilities`, `POST /v1/chat`, and `POST /v1/reset`.
+Chat requests and responses are JSON; the first chat request creates a random
+in-memory `session_id`, which must be sent with follow-up requests. Sessions
+are not persistent and are cleared when the process exits.
+
+Example:
+
+```powershell
+$body = @{ message = "Explain a neural network in simple terms." } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/v1/chat -ContentType "application/json" -Body $body
+```
+
+Do not expose this developer-preview server to the public internet. It has no
+account authentication or durable session storage.

@@ -1,0 +1,270 @@
+"""Loopback HTTP API tests for Valence."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Sequence
+from http.client import HTTPConnection
+from threading import Thread
+
+import pytest
+
+from proton_i.valence.backend import ChatMessage
+from proton_i.valence.api import create_server
+
+
+class RecordingBackend:
+    """Small deterministic backend for local API integration tests."""
+
+    def __init__(self, replies: list[str] | None = None) -> None:
+        self.replies = list(["Reply"] if replies is None else replies)
+        self.calls: list[list[ChatMessage]] = []
+
+    def complete(self, messages: Sequence[ChatMessage]) -> str:
+        self.calls.append(list(messages))
+        if not self.replies:
+            raise RuntimeError("no test reply configured")
+        return self.replies.pop(0)
+
+
+@pytest.fixture
+def running_api():
+    backend = RecordingBackend(["First reply", "Second reply", "After reset"])
+    server = create_server(backend, port=0, max_sessions=4)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server, backend
+    finally:
+        server.shutdown()
+        thread.join(timeout=2.0)
+        server.server_close()
+
+
+def request_json(
+    server,
+    method: str,
+    path: str,
+    payload: dict[str, object] | None = None,
+    headers: dict[str, str] | None = None,
+) -> tuple[int, dict[str, object]]:
+    """Send a JSON request to the ephemeral test server."""
+    connection = HTTPConnection(server.server_address[0], server.server_address[1])
+    request_headers = {"Content-Type": "application/json"}
+    if headers:
+        request_headers.update(headers)
+    body = json.dumps(payload).encode("utf-8") if payload is not None else b"{}"
+    connection.request(method, path, body=body, headers=request_headers)
+    response = connection.getresponse()
+    status = response.status
+    response_body = response.read()
+    connection.close()
+    return status, json.loads(response_body.decode("utf-8"))
+
+
+def test_health_and_capabilities_endpoints(running_api) -> None:
+    server, _backend = running_api
+    status, health = request_json(server, "GET", "/health")
+    assert status == 200
+    assert health["status"] == "ok"
+    assert health["active_sessions"] == 0
+
+    status, capabilities = request_json(server, "GET", "/v1/capabilities")
+    assert status == 200
+    assert capabilities["local_chat"] == "supported"
+    assert capabilities["web_search"] == "not_integrated"
+
+
+def test_chat_creates_a_random_session_and_returns_reply(running_api) -> None:
+    server, _backend = running_api
+    status, response = request_json(
+        server,
+        "POST",
+        "/v1/chat",
+        {"message": "Hello Valence"},
+    )
+
+    assert status == 200
+    assert response["message"] == "First reply"
+    assert isinstance(response["session_id"], str)
+    assert len(response["session_id"]) > 20
+
+
+def test_chat_keeps_context_and_reset_clears_it(running_api) -> None:
+    server, backend = running_api
+    first_status, first = request_json(
+        server, "POST", "/v1/chat", {"message": "First question"}
+    )
+    session_id = first["session_id"]
+    second_status, second = request_json(
+        server,
+        "POST",
+        "/v1/chat",
+        {"message": "Follow-up", "session_id": session_id},
+    )
+
+    assert first_status == second_status == 200
+    assert backend.calls[1][1:] == [
+        ChatMessage("user", "First question"),
+        ChatMessage("assistant", "First reply"),
+        ChatMessage("user", "Follow-up"),
+    ]
+
+    reset_status, reset = request_json(
+        server, "POST", "/v1/reset", {"session_id": session_id}
+    )
+    after_status, after = request_json(
+        server,
+        "POST",
+        "/v1/chat",
+        {"message": "Fresh start", "session_id": session_id},
+    )
+
+    assert reset_status == after_status == 200
+    assert reset["status"] == "reset"
+    assert after["message"] == "After reset"
+    assert len(backend.calls[2]) == 2
+    assert backend.calls[2][0].role == "system"
+    assert backend.calls[2][1] == ChatMessage("user", "Fresh start")
+
+
+def test_chat_rejects_unknown_session(running_api) -> None:
+    server, _backend = running_api
+    status, response = request_json(
+        server,
+        "POST",
+        "/v1/chat",
+        {"message": "Hello", "session_id": "not-a-session"},
+    )
+    assert status == 404
+    assert "not found" in response["error"]
+
+
+def test_reset_requires_an_existing_session(running_api) -> None:
+    server, _backend = running_api
+    status, response = request_json(
+        server, "POST", "/v1/reset", {"session_id": "unknown"}
+    )
+    assert status == 404
+    assert "not found" in response["error"]
+
+
+def test_api_rejects_non_json_content_type(running_api) -> None:
+    server, _backend = running_api
+    connection = HTTPConnection(server.server_address[0], server.server_address[1])
+    connection.request(
+        "POST",
+        "/v1/chat",
+        body=b"message=hello",
+        headers={"Content-Type": "text/plain"},
+    )
+    response = connection.getresponse()
+    body = json.loads(response.read().decode("utf-8"))
+    connection.close()
+    assert response.status == 415
+    assert "application/json" in body["error"]
+
+
+def test_api_rejects_invalid_json(running_api) -> None:
+    server, _backend = running_api
+    connection = HTTPConnection(server.server_address[0], server.server_address[1])
+    connection.request(
+        "POST",
+        "/v1/chat",
+        body=b"{invalid",
+        headers={"Content-Type": "application/json"},
+    )
+    response = connection.getresponse()
+    body = json.loads(response.read().decode("utf-8"))
+    connection.close()
+    assert response.status == 400
+    assert "valid UTF-8 JSON" in body["error"]
+
+
+def test_api_rejects_oversized_requests(running_api) -> None:
+    server, _backend = running_api
+    connection = HTTPConnection(server.server_address[0], server.server_address[1])
+    connection.request(
+        "POST",
+        "/v1/chat",
+        body=b"x" * (16 * 1024 + 1),
+        headers={"Content-Type": "application/json"},
+    )
+    response = connection.getresponse()
+    body = json.loads(response.read().decode("utf-8"))
+    connection.close()
+    assert response.status == 413
+    assert "16 KB" in body["error"]
+
+
+def test_api_rejects_remote_browser_origins(running_api) -> None:
+    server, _backend = running_api
+    connection = HTTPConnection(server.server_address[0], server.server_address[1])
+    connection.request(
+        "POST",
+        "/v1/chat",
+        body=b'{"message":"hello"}',
+        headers={
+            "Content-Type": "application/json",
+            "Origin": "https://malicious.example",
+        },
+    )
+    response = connection.getresponse()
+    body = json.loads(response.read().decode("utf-8"))
+    connection.close()
+    assert response.status == 403
+    assert "loopback browser origins" in body["error"]
+
+
+def test_api_enforces_session_limit() -> None:
+    backend = RecordingBackend(["one", "two"])
+    server = create_server(backend, port=0, max_sessions=1)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        first_status, first = request_json(
+            server, "POST", "/v1/chat", {"message": "first"}
+        )
+        second_status, second = request_json(
+            server, "POST", "/v1/chat", {"message": "second"}
+        )
+        assert first_status == 200
+        assert second_status == 429
+        assert "session limit" in second["error"]
+    finally:
+        server.shutdown()
+        thread.join(timeout=2.0)
+        server.server_close()
+
+
+def test_api_refuses_non_loopback_bind_address() -> None:
+    with pytest.raises(ValueError, match="loopback"):
+        create_server(RecordingBackend(), host="0.0.0.0", port=8765)
+
+
+
+def test_api_accepts_same_origin_loopback_browser_request(running_api) -> None:
+    server, _backend = running_api
+    origin = f"http://127.0.0.1:{server.server_address[1]}"
+    status, response = request_json(
+        server,
+        "POST",
+        "/v1/chat",
+        {"message": "Hello from same origin"},
+        headers={"Origin": origin},
+    )
+    assert status == 200
+    assert response["message"] == "First reply"
+
+
+def test_api_rejects_loopback_origin_from_different_port(running_api) -> None:
+    server, _backend = running_api
+    status, response = request_json(
+        server,
+        "POST",
+        "/v1/chat",
+        {"message": "Cross-origin request"},
+        headers={"Origin": "http://127.0.0.1:5173"},
+    )
+    assert status == 403
+    assert "same-origin" in response["error"]
