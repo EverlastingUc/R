@@ -42,6 +42,16 @@ def _load_test_documents(
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     metadata = json.loads(tokenizer_path.read_text(encoding="utf-8"))
+    if (
+        metadata.get("type") == "byte-bpe"
+        and metadata.get("format_version") == 1
+        and "vocab_size" not in metadata
+    ):
+        merges = metadata.get("merges")
+        if not isinstance(merges, list):
+            raise ValueError("prepared BPE merge table is malformed")
+        legacy_tokenizer = BPETokenizer(tuple(tuple(pair) for pair in merges))
+        metadata = _tokenizer_metadata(legacy_tokenizer)
     fingerprint = hashlib.sha256(
         json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -59,11 +69,9 @@ def _load_test_documents(
         except json.JSONDecodeError as error:
             raise ValueError(f"invalid test JSONL record at line {line_number}") from error
         ids = record.get("token_ids") if isinstance(record, dict) else None
-        if (
-            record.get("tokenizer_fingerprint") != fingerprint
-            if isinstance(record, dict)
-            else True
-        ):
+        if not isinstance(record, dict) or record.get(
+            "tokenizer_fingerprint"
+        ) != fingerprint:
             raise ValueError("test record tokenizer fingerprint mismatch")
         if (
             not isinstance(ids, list)
