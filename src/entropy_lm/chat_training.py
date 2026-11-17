@@ -12,6 +12,7 @@ from typing import Any
 
 import torch
 from torch import Tensor
+from torch.nn import functional as F
 
 from entropy_lm.bpe_tokenizer import BPETokenizer
 from entropy_lm.chat_data import IGNORE_INDEX
@@ -263,18 +264,35 @@ def train_on_conversations(
     for step in range(1, steps + 1):
         model.train()
         optimizer.zero_grad(set_to_none=True)
+        sample_indices = torch.randint(
+            len(train_inputs),
+            (batch_size * gradient_accumulation_steps,),
+            generator=generator,
+        )
+        sampled_targets = train_targets[sample_indices]
+        supervised_target_count = int(
+            (sampled_targets != IGNORE_INDEX).sum().item()
+        )
+        if supervised_target_count == 0:
+            raise RuntimeError("sampled training batch contains no assistant targets")
         accumulated_loss = 0.0
-        for _ in range(gradient_accumulation_steps):
-            indices = torch.randint(
-                len(train_inputs), (batch_size,), generator=generator
-            )
+        for microbatch_index in range(gradient_accumulation_steps):
+            start = microbatch_index * batch_size
+            end = start + batch_size
+            indices = sample_indices[start:end]
             batch_inputs = train_inputs[indices].to(target_device)
             batch_targets = train_targets[indices].to(target_device)
-            _, loss = model(batch_inputs, batch_targets, ignore_index=IGNORE_INDEX)
-            if loss is None or not torch.isfinite(loss):
+            logits, _ = model(batch_inputs)
+            loss_sum = F.cross_entropy(
+                logits.reshape(-1, architecture.vocab_size),
+                batch_targets.reshape(-1),
+                ignore_index=IGNORE_INDEX,
+                reduction="sum",
+            )
+            if not torch.isfinite(loss_sum):
                 raise FloatingPointError("assistant-only training loss is non-finite")
-            accumulated_loss += float(loss.item())
-            (loss / gradient_accumulation_steps).backward()
+            accumulated_loss += float(loss_sum.item())
+            (loss_sum / supervised_target_count).backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         scheduler.step()
@@ -293,8 +311,8 @@ def train_on_conversations(
                     "validation_loss": validation_loss,
                     "validation_perplexity": math.exp(min(validation_loss, 80.0)),
                     "learning_rate": float(optimizer.param_groups[0]["lr"]),
-                    "mean_microbatch_loss": accumulated_loss
-                    / gradient_accumulation_steps,
+                    "assistant_training_loss": accumulated_loss
+                    / supervised_target_count,
                 }
             )
             if validation_loss < best_validation_loss:
