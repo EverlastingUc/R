@@ -185,7 +185,7 @@ class ValenceRequestHandler(BaseHTTPRequestHandler):
         """Handle chat and conversation-reset requests."""
         if not self._origin_is_local():
             self._send_json(
-                403, {"error": "Only loopback browser origins are allowed."}
+                403, {"error": "Only same-origin loopback browser origins are allowed."}
             )
             return
 
