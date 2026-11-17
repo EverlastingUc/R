@@ -1,4 +1,4 @@
-from entropy_lm.bpe_tokenizer import BPETokenizer, BASE_VOCAB_SIZE
+from entropy_lm.bpe_tokenizer import BASE_VOCAB_SIZE, BPETokenizer
 
 
 def test_bpe_round_trip_unicode_and_special_tokens():
