@@ -69,8 +69,8 @@ See [the Valence product specification](docs/proton_i/VALENCE_PRODUCT_SPEC.md) a
 ## Entropy research track
 
 - `neural_network.py` — compact binary-classification network.
-- `src/nn/` — NumPy neurons, layers, feedforward network, regression and softmax-classification training, losses, backpropagation, optimizers and numerical utilities.
-- `experiments/` — reproducible learning experiments.
+- `src/nn/` — NumPy neurons, layers, feedforward network, regression and softmax-classification training, losses, backpropagation, optimizers, numerical utilities and a reproducible UCI Iris loader.
+- `experiments/` — reproducible learning experiments, including the CP22 UCI Iris classifier.
 - `configs/` — versioned experiment settings.
 - `reports/` — measured experiment reports and saved checkpoints.
 - `docs/checkpoints/` — educational notes and evidence for the Entropy checkpoints.
