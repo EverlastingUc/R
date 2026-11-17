@@ -81,9 +81,7 @@ Run these commands from the repository root:
     python -m pytest -q tests/test_datasets.py
     python -m experiments.cp21_dataset_pipeline
 
-The pipeline's actual source archive checksums and exact Bike Sharing split
-row counts must be captured by a successful run with network access. The
-repository report does not claim those run-time values before they exist.
+The measured source checksums and split row counts from the successful run are recorded in the Verified run section below.
 
 
 ## Verified run — 2026-11-18
