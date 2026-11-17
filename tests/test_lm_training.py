@@ -6,8 +6,8 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from entropy_lm.model import TransformerConfig
 from entropy_lm.corpus import prepare_corpus
+from entropy_lm.model import TransformerConfig
 from entropy_lm.training import train_language_model
 
 
