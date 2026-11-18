@@ -7,6 +7,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from entropy_lm.chat_benchmark import (
+    _contains_phrase,
     _read_benchmark_dataset,
     _score_case,
     evaluate_chat_benchmark,
@@ -156,8 +157,6 @@ def test_end_to_end_chat_benchmark_is_reproducible_and_preserves_rng(tmp_path):
 
 
 def test_phrase_checks_match_word_sequences_not_substrings():
-    from entropy_lm.chat_benchmark import _contains_phrase
-
     assert _contains_phrase("The assistant is helpful.", "assistant is")
     assert _contains_phrase("Paris, France", "paris france") is False
     assert _contains_phrase("Paris, France", "Paris")

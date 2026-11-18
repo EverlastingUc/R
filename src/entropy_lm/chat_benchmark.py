@@ -25,8 +25,8 @@ def _normalize_text(value: str) -> str:
 
 def _contains_phrase(text: str, phrase: str) -> bool:
     """Match a phrase as consecutive Unicode word tokens, not a substring."""
-    text_tokens = re.findall(r"\\w+", _normalize_text(text))
-    phrase_tokens = re.findall(r"\\w+", _normalize_text(phrase))
+    text_tokens = re.findall(r"\w+", _normalize_text(text))
+    phrase_tokens = re.findall(r"\w+", _normalize_text(phrase))
     if not phrase_tokens or len(phrase_tokens) > len(text_tokens):
         return False
     width = len(phrase_tokens)
