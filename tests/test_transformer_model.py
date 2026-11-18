@@ -219,3 +219,37 @@ def test_forward_with_cache_rejects_incompatible_cache():
         model.forward_with_cache(tokens, cache * 2)
     with pytest.raises(ValueError, match="exceeds configured context_length"):
         model.forward_with_cache(torch.ones((1, 7), dtype=torch.long), cache)
+
+
+
+def test_gradient_checkpointing_matches_normal_parameter_gradients():
+    torch.manual_seed(211)
+    config = TransformerConfig(
+        vocab_size=32,
+        context_length=8,
+        embedding_dim=16,
+        num_heads=4,
+        num_layers=2,
+        dropout=0.0,
+    )
+    baseline = CausalLanguageModel(config).train()
+    checkpointed = CausalLanguageModel(config).train()
+    checkpointed.load_state_dict(baseline.state_dict())
+    checkpointed.gradient_checkpointing_enable()
+
+    tokens = torch.randint(0, config.vocab_size, (2, 6), dtype=torch.long)
+    _, baseline_loss = baseline(tokens, tokens)
+    _, checkpointed_loss = checkpointed(tokens, tokens)
+    assert baseline_loss is not None and checkpointed_loss is not None
+    baseline_loss.backward()
+    checkpointed_loss.backward()
+    assert torch.allclose(baseline_loss, checkpointed_loss, atol=1e-6)
+    for baseline_parameter, checkpointed_parameter in zip(
+        baseline.parameters(), checkpointed.parameters()
+    ):
+        assert baseline_parameter.grad is not None
+        assert checkpointed_parameter.grad is not None
+        assert torch.allclose(
+            baseline_parameter.grad, checkpointed_parameter.grad, atol=1e-6
+        )
+

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,7 @@ class CausalLanguageModel(nn.Module):
     def __init__(self, config: TransformerConfig) -> None:
         super().__init__()
         self.config = config
+        self.gradient_checkpointing = False
         self.token_embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
         self.position_embedding = nn.Embedding(
             config.context_length, config.embedding_dim
@@ -92,6 +94,14 @@ class CausalLanguageModel(nn.Module):
         nn.init.ones_(self.final_norm.weight)
         nn.init.zeros_(self.final_norm.bias)
 
+    def gradient_checkpointing_enable(self) -> None:
+        """Recompute Transformer layer activations during training to save memory."""
+        self.gradient_checkpointing = True
+
+    def gradient_checkpointing_disable(self) -> None:
+        """Disable activation checkpointing and retain normal forward activations."""
+        self.gradient_checkpointing = False
+
     def forward(
         self,
         input_ids: Tensor,
@@ -129,7 +139,13 @@ class CausalLanguageModel(nn.Module):
             ),
             diagonal=1,
         )
-        hidden = self.blocks(hidden, mask=causal_mask)
+        if self.training and self.gradient_checkpointing:
+            for layer in self.blocks.layers:
+                hidden = checkpoint(
+                    layer, hidden, causal_mask, use_reentrant=False
+                )
+        else:
+            hidden = self.blocks(hidden, mask=causal_mask)
         logits = self.output(self.final_norm(hidden))
 
         loss = None
