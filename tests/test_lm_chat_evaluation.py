@@ -20,6 +20,10 @@ def test_chat_evaluator_scores_only_assistant_targets_on_test_split(tmp_path):
             {"role": "system", "content": "Answer clearly."},
             {"role": "user", "content": f"What is item {index}?"},
             {"role": "assistant", "content": f"Item {index} has value {index + 1}."},
+            {"role": "user", "content": f"Can you explain item {index}?"},
+            {"role": "assistant", "content": f"Item {index} is explained here."},
+            {"role": "user", "content": f"Summarize item {index}."},
+            {"role": "assistant", "content": f"Summary for item {index}."},
         ]
         (source / f"{index:02d}.jsonl").write_text(
             json.dumps({"messages": messages}) + "\n",
@@ -63,6 +67,13 @@ def test_chat_evaluator_scores_only_assistant_targets_on_test_split(tmp_path):
     )
     assert result["assistant_perplexity"] > 1.0
     assert len(result["checkpoint_sha256"]) == 64
+    turn_metrics = result["turn_position_metrics"]
+    assert turn_metrics["conversation_count"] == manifest["splits"]["test"]
+    assert turn_metrics["first"]["assistant_tokens"] > 0
+    assert turn_metrics["middle"]["assistant_tokens"] > 0
+    assert turn_metrics["final"]["assistant_tokens"] > 0
+    assert turn_metrics["first"]["perplexity"] > 0
+    assert turn_metrics["final"]["perplexity"] > 0
 
 
 def test_chat_evaluator_rejects_non_sft_checkpoint(tmp_path):
