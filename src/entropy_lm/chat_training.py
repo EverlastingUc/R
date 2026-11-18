@@ -130,15 +130,25 @@ def _load_chat_windows(
         ):
             raise ValueError(f"{split} labels do not align with input token IDs")
 
-        for window_start in range(0, len(token_ids) - 1, context_length):
-            window_end = min(window_start + context_length, len(token_ids) - 1)
-            window_inputs = token_ids[window_start:window_end]
-            window_targets = labels[window_start + 1 : window_end + 1]
-            if not any(label != IGNORE_INDEX for label in window_targets):
-                continue
-            padding = context_length - len(window_inputs)
-            inputs.append(window_inputs + [tokenizer.eos_id] * padding)
-            targets.append(window_targets + [IGNORE_INDEX] * padding)
+        # Score each next-token target exactly once, while carrying the
+        # preceding context into overlapping windows. Only the newest stride
+        # of target positions is supervised in each window.
+        stride = max(1, context_length // 2)
+        score_start = 1
+        while score_start < len(token_ids):
+            score_end = min(len(token_ids), score_start + stride)
+            context_start = max(0, score_start - (context_length - stride))
+            window_inputs = token_ids[context_start : score_end - 1]
+            window_targets = labels[context_start + 1 : score_end]
+            scored_targets = [
+                label if context_start + offset + 1 >= score_start else IGNORE_INDEX
+                for offset, label in enumerate(window_targets)
+            ]
+            if any(label != IGNORE_INDEX for label in scored_targets):
+                padding = context_length - len(window_inputs)
+                inputs.append(window_inputs + [tokenizer.eos_id] * padding)
+                targets.append(scored_targets + [IGNORE_INDEX] * padding)
+            score_start = score_end
 
     if not inputs:
         raise ValueError(f"{split} split contains no supervised next-token windows")

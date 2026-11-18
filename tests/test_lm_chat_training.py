@@ -55,6 +55,14 @@ def test_sft_loader_builds_supervised_windows_only(tmp_path):
     )
     assert len(corpus_hash) == 64
 
+    # Overlapping context must not duplicate or drop assistant next-token targets.
+    expected_targets = 0
+    for record in (prepared / "train.jsonl").read_text(encoding="utf-8").splitlines():
+        expected_targets += sum(
+            label != -100 for label in json.loads(record)["labels"][1:]
+        )
+    assert int((train_targets != -100).sum().item()) == expected_targets
+
 
 def test_sft_training_saves_inference_compatible_checkpoint(tmp_path):
     source = tmp_path / "source"
