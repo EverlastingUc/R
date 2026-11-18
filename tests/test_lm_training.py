@@ -359,6 +359,7 @@ def test_resume_accepts_legacy_learned_position_architecture_metadata(tmp_path):
     payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
     payload["architecture"].pop("position_encoding")
     payload["architecture"].pop("rope_base")
+    payload["architecture"].pop("attention_window")
     torch.save(payload, checkpoint)
 
     history = train_language_model(
