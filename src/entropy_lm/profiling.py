@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
 import statistics
 import time
 from pathlib import Path
@@ -36,11 +35,23 @@ def profile_checkpoint(
     """Measure checkpoint size, prefill, decode latency, throughput and memory."""
     if not isinstance(prompt, str):
         raise TypeError("prompt must be a string")
-    if isinstance(max_new_tokens, bool) or not isinstance(max_new_tokens, int) or max_new_tokens < 1:
+    if (
+        isinstance(max_new_tokens, bool)
+        or not isinstance(max_new_tokens, int)
+        or max_new_tokens < 1
+    ):
         raise ValueError("max_new_tokens must be a positive integer")
-    if isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size < 1:
+    if (
+        isinstance(batch_size, bool)
+        or not isinstance(batch_size, int)
+        or batch_size < 1
+    ):
         raise ValueError("batch_size must be a positive integer")
-    if isinstance(warmup_steps, bool) or not isinstance(warmup_steps, int) or warmup_steps < 0:
+    if (
+        isinstance(warmup_steps, bool)
+        or not isinstance(warmup_steps, int)
+        or warmup_steps < 0
+    ):
         raise ValueError("warmup_steps must be a non-negative integer")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed must be an integer")
