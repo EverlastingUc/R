@@ -56,7 +56,7 @@ def check_prepared_chat_dataset(dataset_dir: str | Path) -> dict[str, Any]:
     documents = manifest.get("documents")
     declared_splits = manifest.get("splits")
     if not isinstance(documents, list) or not isinstance(declared_splits, dict):
-        raise ValueError("manifest documents or splits field is malformed")
+        raise TypeError("manifest documents or splits field is malformed")
 
     document_map: dict[str, tuple[str, str]] = {}
     for index, document in enumerate(documents):
@@ -165,7 +165,7 @@ def check_prepared_chat_dataset(dataset_dir: str | Path) -> dict[str, Any]:
     for split in ("train", "validation", "test"):
         declared = declared_splits.get(split)
         if isinstance(declared, bool) or not isinstance(declared, int):
-            raise ValueError(f"manifest split count for {split} is invalid")
+            raise TypeError(f"manifest split count for {split} is invalid")
         if counts[split] != declared:
             raise ValueError(f"{split} count does not match manifest")
 
