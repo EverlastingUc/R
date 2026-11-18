@@ -8,7 +8,7 @@ import json
 import math
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import torch
 from torch import Tensor
@@ -18,7 +18,13 @@ from entropy_lm.bpe_tokenizer import BPETokenizer
 from entropy_lm.chat_data import IGNORE_INDEX
 from entropy_lm.model import CausalLanguageModel, TransformerConfig
 from entropy_lm.tokenizer import ByteTokenizer
-from entropy_lm.training import _learning_rate_scale, _tokenizer_metadata
+from entropy_lm.training import (
+    _autocast_context,
+    _create_grad_scaler,
+    _learning_rate_scale,
+    _tokenizer_metadata,
+    _validate_training_precision,
+)
 
 
 def _load_chat_tokenizer(
@@ -171,6 +177,7 @@ def _evaluate(
     *,
     batch_size: int,
     device: torch.device,
+    precision: str = "fp32",
 ) -> float:
     model.eval()
     total_loss = 0.0
@@ -181,7 +188,8 @@ def _evaluate(
         target_count = int((batch_targets != IGNORE_INDEX).sum().item())
         if target_count == 0:
             continue
-        _, loss = model(batch_inputs, batch_targets, ignore_index=IGNORE_INDEX)
+        with _autocast_context(device, precision):
+            _, loss = model(batch_inputs, batch_targets, ignore_index=IGNORE_INDEX)
         if loss is None or not torch.isfinite(loss):
             raise FloatingPointError("assistant-only validation loss is non-finite")
         total_loss += float(loss.item()) * target_count
@@ -208,6 +216,8 @@ def train_on_conversations(
     checkpoint_path: str | Path = "entropy-chat-model.pt",
     resume_from: str | Path | None = None,
     max_steps_per_run: int | None = None,
+    precision: Literal["fp32", "bf16", "fp16"] = "fp32",
+    gradient_checkpointing: bool = False,
 ) -> list[dict[str, float | int]]:
     """Fine-tune on assistant targets, with exact CPU pause/resume support."""
     if steps < 1 or batch_size < 1 or eval_interval < 1:
@@ -229,6 +239,8 @@ def train_on_conversations(
         raise TypeError("seed must be an integer")
     if max_steps_per_run is not None and max_steps_per_run < 1:
         raise ValueError("max_steps_per_run must be positive when supplied")
+    if not isinstance(gradient_checkpointing, bool):
+        raise TypeError("gradient_checkpointing must be a boolean")
     if resume_from is not None and checkpoint_path == "entropy-chat-model.pt":
         checkpoint_path = resume_from
 
@@ -248,6 +260,7 @@ def train_on_conversations(
         raise ValueError("model vocab_size must match the prepared chat tokenizer")
 
     target_device = torch.device(device)
+    _validate_training_precision(target_device, precision)
     run_config = {
         "steps": steps,
         "batch_size": batch_size,
@@ -259,12 +272,17 @@ def train_on_conversations(
         "early_stopping_patience": early_stopping_patience,
         "seed": seed,
         "device": device,
+        "precision": precision,
+        "gradient_checkpointing": gradient_checkpointing,
         "corpus_sha256": corpus_sha256,
     }
 
     torch.manual_seed(seed)
     model = CausalLanguageModel(architecture).to(target_device)
+    if gradient_checkpointing:
+        model.gradient_checkpointing_enable()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    scaler = _create_grad_scaler(precision)
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer,
         lr_lambda=lambda step: _learning_rate_scale(
@@ -299,7 +317,16 @@ def train_on_conversations(
             raise ValueError("SFT resume checkpoint training metadata is malformed")
         if saved_training.get("corpus_sha256") != corpus_sha256:
             raise ValueError("SFT resume checkpoint corpus does not match")
-        if saved_training.get("run_config") != run_config:
+        saved_run_config = saved_training.get("run_config")
+        legacy_run_config = dict(run_config)
+        legacy_run_config.pop("precision")
+        legacy_run_config.pop("gradient_checkpointing")
+        compatible_legacy = (
+            precision == "fp32"
+            and not gradient_checkpointing
+            and saved_run_config == legacy_run_config
+        )
+        if saved_run_config != run_config and not compatible_legacy:
             raise ValueError(
                 "SFT resume checkpoint training configuration does not match"
             )
@@ -316,6 +343,11 @@ def train_on_conversations(
             model.load_state_dict(resume_state["model_state"], strict=True)
             optimizer.load_state_dict(resume_state["optimizer_state"])
             scheduler.load_state_dict(resume_state["scheduler_state"])
+            saved_scaler_state = resume_state.get("scaler_state")
+            if saved_scaler_state is not None:
+                scaler.load_state_dict(saved_scaler_state)
+            elif scaler.is_enabled():
+                raise ValueError("SFT resume checkpoint is missing gradient scaler state")
             restored_history = saved_training.get("history")
             if not isinstance(restored_history, list):
                 raise TypeError("SFT resume checkpoint history must be a list")
@@ -388,6 +420,7 @@ def train_on_conversations(
                 "model_state": clone_model_state(),
                 "optimizer_state": optimizer.state_dict(),
                 "scheduler_state": scheduler.state_dict(),
+                "scaler_state": scaler.state_dict(),
                 "rng_state": capture_rng_state(),
             },
         }
@@ -426,19 +459,22 @@ def train_on_conversations(
             indices = sample_indices[start:end]
             batch_inputs = train_inputs[indices].to(target_device)
             batch_targets = train_targets[indices].to(target_device)
-            logits, _ = model(batch_inputs)
-            loss_sum = F.cross_entropy(
-                logits.reshape(-1, architecture.vocab_size),
-                batch_targets.reshape(-1),
-                ignore_index=IGNORE_INDEX,
-                reduction="sum",
-            )
+            with _autocast_context(target_device, precision):
+                logits, _ = model(batch_inputs)
+                loss_sum = F.cross_entropy(
+                    logits.reshape(-1, architecture.vocab_size),
+                    batch_targets.reshape(-1),
+                    ignore_index=IGNORE_INDEX,
+                    reduction="sum",
+                )
             if not torch.isfinite(loss_sum):
                 raise FloatingPointError("assistant-only training loss is non-finite")
             accumulated_loss += float(loss_sum.item())
-            (loss_sum / supervised_target_count).backward()
+            scaler.scale(loss_sum / supervised_target_count).backward()
+        scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
+        scaler.step(optimizer)
+        scaler.update()
         scheduler.step()
         completed_steps = step
 
@@ -449,6 +485,7 @@ def train_on_conversations(
                 validation_targets,
                 batch_size=batch_size,
                 device=target_device,
+                precision=precision,
             )
             history.append(
                 {
@@ -498,6 +535,14 @@ def main() -> None:
     parser.add_argument("--minimum-learning-rate-ratio", type=float, default=0.1)
     parser.add_argument("--early-stopping-patience", type=int)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--precision", choices=("fp32", "bf16", "fp16"), default="fp32"
+    )
+    parser.add_argument(
+        "--gradient-checkpointing",
+        action="store_true",
+        help="recompute Transformer activations to reduce training memory",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--resume",
@@ -535,6 +580,8 @@ def main() -> None:
         checkpoint_path=args.checkpoint,
         resume_from=args.checkpoint if args.resume else None,
         max_steps_per_run=args.max_steps_this_run,
+        precision=args.precision,
+        gradient_checkpointing=args.gradient_checkpointing,
     )
     print(json.dumps(history, indent=2))
 
