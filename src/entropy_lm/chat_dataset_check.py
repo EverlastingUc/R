@@ -152,6 +152,46 @@ def check_prepared_chat_dataset(dataset_dir: str | Path) -> dict[str, Any]:
             if supervised == 0:
                 raise ValueError(f"{path.name}:{line_number} has no assistant targets")
 
+            if "assistant_turns" in record:
+                turns = record["assistant_turns"]
+                if not isinstance(turns, list) or not turns:
+                    raise ValueError(
+                        f"{path.name}:{line_number} assistant-turn metadata is malformed"
+                    )
+                covered = [False] * len(labels)
+                previous_end = 0
+                for turn_index, turn in enumerate(turns):
+                    if (
+                        not isinstance(turn, dict)
+                        or turn.get("turn_index") != turn_index
+                        or isinstance(turn.get("target_start"), bool)
+                        or not isinstance(turn.get("target_start"), int)
+                        or isinstance(turn.get("target_end"), bool)
+                        or not isinstance(turn.get("target_end"), int)
+                    ):
+                        raise ValueError(
+                            f"{path.name}:{line_number} assistant-turn metadata is malformed"
+                        )
+                    start, end = turn["target_start"], turn["target_end"]
+                    if not previous_end <= start < end <= len(labels):
+                        raise ValueError(
+                            f"{path.name}:{line_number} assistant-turn spans are invalid"
+                        )
+                    for position in range(start, end):
+                        if labels[position] == IGNORE_INDEX or covered[position]:
+                            raise ValueError(
+                                f"{path.name}:{line_number} assistant-turn labels are invalid"
+                            )
+                        covered[position] = True
+                    previous_end = end
+                if any(
+                    label != IGNORE_INDEX and not covered[position]
+                    for position, label in enumerate(labels)
+                ):
+                    raise ValueError(
+                        f"{path.name}:{line_number} assistant-turn spans do not cover targets"
+                    )
+
             observed[digest] = {"source": source, "split": split}
             counts[split] += 1
             token_counts[split] += len(input_ids)
