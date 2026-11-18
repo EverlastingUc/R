@@ -148,6 +148,8 @@ def test_end_to_end_chat_benchmark_is_reproducible_and_preserves_rng(tmp_path):
     assert first["cases"] == second["cases"]
     assert first["metrics"] == second["metrics"]
     assert first["samples"] == 2
+    assert first["generation"]["top_p"] == 1.0
+    assert first["generation"]["repetition_penalty"] == 1.0
     assert first["benchmark_dataset_sha256"]
     assert len(first["checkpoint_sha256"]) == 64
     assert 0.0 <= first["metrics"]["normalized_exact_match_rate"] <= 1.0
@@ -193,3 +195,23 @@ def test_chat_benchmark_rejects_invalid_generation_parameters(tmp_path, override
 
 def test_token_f1_returns_zero_when_nonempty_answers_do_not_overlap():
     assert _token_f1("cat", "dog") == 0.0
+
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"top_p": 0.0},
+        {"top_p": 1.01},
+        {"top_p": float("nan")},
+        {"repetition_penalty": 0.0},
+        {"repetition_penalty": float("inf")},
+    ],
+)
+def test_chat_benchmark_rejects_invalid_sampling_controls(tmp_path, overrides):
+    with pytest.raises(ValueError):
+        evaluate_chat_benchmark(
+            tmp_path / "missing.pt",
+            tmp_path / "missing.jsonl",
+            **overrides,
+        )

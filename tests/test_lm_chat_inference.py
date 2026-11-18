@@ -154,9 +154,15 @@ def test_streaming_chat_decodes_utf8_safely(tokenizer, tmp_path):
 
     model.generate_stream = fixed_stream
     messages = [{"role": "user", "content": "Return the test phrase."}]
-    chunks = list(stream_chat_response(model, messages, top_k=1))
+    chunks = list(
+        stream_chat_response(
+            model, messages, top_k=1, top_p=0.9, repetition_penalty=1.1
+        )
+    )
     assert "".join(chunks) == expected_text
-    assert generate_chat_response(model, messages, top_k=1) == expected_text
+    assert generate_chat_response(
+        model, messages, top_k=1, top_p=0.9, repetition_penalty=1.1
+    ) == expected_text
 
 
 def test_context_packing_preserves_system_and_latest_user_turn():

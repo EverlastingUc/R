@@ -142,6 +142,8 @@ def evaluate_chat_benchmark(
     max_new_tokens: int = 128,
     temperature: float = 1.0,
     top_k: int | None = 1,
+    top_p: float = 1.0,
+    repetition_penalty: float = 1.0,
     seed: int = 0,
     device: str = "cpu",
 ) -> dict[str, Any]:
@@ -163,6 +165,20 @@ def evaluate_chat_benchmark(
         isinstance(top_k, bool) or not isinstance(top_k, int) or top_k < 1
     ):
         raise ValueError("top_k must be a positive integer when supplied")
+    if (
+        isinstance(top_p, bool)
+        or not isinstance(top_p, (int, float))
+        or not math.isfinite(top_p)
+        or not 0.0 < top_p <= 1.0
+    ):
+        raise ValueError("top_p must be finite and in (0, 1]")
+    if (
+        isinstance(repetition_penalty, bool)
+        or not isinstance(repetition_penalty, (int, float))
+        or not math.isfinite(repetition_penalty)
+        or repetition_penalty <= 0.0
+    ):
+        raise ValueError("repetition_penalty must be positive and finite")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed must be an integer")
 
@@ -196,6 +212,8 @@ def evaluate_chat_benchmark(
                 max_new_tokens=max_new_tokens,
                 temperature=temperature,
                 top_k=top_k,
+                top_p=top_p,
+                repetition_penalty=repetition_penalty,
             )
             scores = _score_case(
                 prediction,
@@ -243,6 +261,8 @@ def evaluate_chat_benchmark(
                 "max_new_tokens": max_new_tokens,
                 "temperature": temperature,
                 "top_k": top_k,
+                "top_p": top_p,
+                "repetition_penalty": repetition_penalty,
                 "seed": seed,
                 "device": device,
             },
@@ -275,6 +295,8 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=128)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top-k", type=int, default=1)
+    parser.add_argument("--top-p", type=float, default=1.0)
+    parser.add_argument("--repetition-penalty", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
@@ -285,6 +307,8 @@ def main() -> None:
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
         top_k=args.top_k,
+        top_p=args.top_p,
+        repetition_penalty=args.repetition_penalty,
         seed=args.seed,
         device=args.device,
     )

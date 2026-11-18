@@ -6,7 +6,11 @@ torch = pytest.importorskip("torch")
 
 from torch.nn import functional as F
 
-from entropy_lm.model import CausalLanguageModel, TransformerConfig
+from entropy_lm.model import (
+    CausalLanguageModel,
+    TransformerConfig,
+    _filter_generation_logits,
+)
 
 
 def test_transformer_forward_loss_and_generation() -> None:
@@ -251,3 +255,84 @@ def test_gradient_checkpointing_matches_normal_parameter_gradients():
         assert torch.allclose(
             baseline_parameter.grad, checkpointed_parameter.grad, atol=1e-6
         )
+
+
+
+def test_generation_filters_apply_top_p_and_repetition_penalty():
+    logits = torch.tensor([[4.0, 3.0, 2.0, 1.0, -2.0]])
+    history = torch.tensor([[1, 4]], dtype=torch.long)
+    penalized = _filter_generation_logits(
+        logits.clone(),
+        history,
+        top_k=None,
+        top_p=1.0,
+        repetition_penalty=2.0,
+    )
+    assert penalized[0, 1].item() == pytest.approx(1.5)
+    assert penalized[0, 4].item() == pytest.approx(-4.0)
+
+    nucleus = _filter_generation_logits(
+        logits.clone(),
+        history[:, :0],
+        top_k=None,
+        top_p=0.8,
+        repetition_penalty=1.0,
+    )
+    assert torch.isfinite(nucleus[0, 0])
+    assert torch.isfinite(nucleus[0, 1])
+    assert torch.isneginf(nucleus[0, 2:]).all()
+
+
+def test_generation_filters_keep_defaults_and_validate_sampling_controls():
+    logits = torch.tensor([[2.0, 1.0, 0.0]])
+    history = torch.tensor([[0, 1]], dtype=torch.long)
+    unchanged = _filter_generation_logits(
+        logits.clone(),
+        history,
+        top_k=None,
+        top_p=1.0,
+        repetition_penalty=1.0,
+    )
+    assert torch.equal(unchanged, logits)
+
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=16,
+            context_length=8,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+        )
+    )
+    prompt = torch.tensor([[1, 2]], dtype=torch.long)
+    for kwargs in (
+        {"top_p": 0.0},
+        {"top_p": 1.1},
+        {"top_p": float("nan")},
+        {"top_p": True},
+        {"repetition_penalty": 0.0},
+        {"repetition_penalty": float("inf")},
+        {"repetition_penalty": True},
+    ):
+        with pytest.raises(ValueError):
+            model.generate(prompt, max_new_tokens=1, **kwargs)
+
+
+def test_generation_repetition_penalty_uses_recent_context_window():
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=16,
+            context_length=4,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+        )
+    ).eval()
+    prompt = torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+    generated = model.generate(
+        prompt,
+        max_new_tokens=2,
+        top_k=1,
+        repetition_penalty=1.2,
+    )
+    assert generated.shape == (1, 6)

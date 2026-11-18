@@ -12,6 +12,43 @@ from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
 
+def _filter_generation_logits(
+    logits: Tensor,
+    token_history: Tensor,
+    *,
+    top_k: int | None,
+    top_p: float,
+    repetition_penalty: float,
+) -> Tensor:
+    """Apply repetition, top-k, and nucleus filtering before token sampling."""
+    if repetition_penalty != 1.0:
+        repeated = torch.zeros_like(logits, dtype=torch.bool)
+        repeated.scatter_(1, token_history, True)
+        penalized = torch.where(
+            logits < 0,
+            logits * repetition_penalty,
+            logits / repetition_penalty,
+        )
+        logits = torch.where(repeated, penalized, logits)
+
+    if top_k is not None:
+        threshold = torch.topk(logits, top_k, dim=-1).values[:, -1]
+        logits = logits.masked_fill(logits < threshold.unsqueeze(-1), float("-inf"))
+
+    if top_p < 1.0:
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+        sorted_probabilities = F.softmax(sorted_logits, dim=-1)
+        cumulative_probabilities = sorted_probabilities.cumsum(dim=-1)
+        remove_sorted = cumulative_probabilities > top_p
+        remove_sorted[..., 1:] = remove_sorted[..., :-1].clone()
+        remove_sorted[..., 0] = False
+        remove_tokens = torch.zeros_like(remove_sorted).scatter(
+            1, sorted_indices, remove_sorted
+        )
+        logits = logits.masked_fill(remove_tokens, float("-inf"))
+    return logits
+
+
 @dataclass(frozen=True)
 class TransformerConfig:
     """Architecture settings for a causal decoder-only language model."""
@@ -309,6 +346,8 @@ class CausalLanguageModel(nn.Module):
         max_new_tokens: int,
         temperature: float = 1.0,
         top_k: int | None = None,
+        top_p: float = 1.0,
+        repetition_penalty: float = 1.0,
         eos_token_id: int | None = None,
     ) -> Tensor:
         """Generate a complete sequence, preserving the existing batch API."""
@@ -318,6 +357,8 @@ class CausalLanguageModel(nn.Module):
             max_new_tokens=max_new_tokens,
             temperature=temperature,
             top_k=top_k,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
             eos_token_id=eos_token_id,
         ):
             result = torch.cat((result, next_token), dim=1)
@@ -331,6 +372,8 @@ class CausalLanguageModel(nn.Module):
         max_new_tokens: int,
         temperature: float = 1.0,
         top_k: int | None = None,
+        top_p: float = 1.0,
+        repetition_penalty: float = 1.0,
         eos_token_id: int | None = None,
     ) -> Iterator[Tensor]:
         """Yield one newly sampled token tensor (batch, 1) at a time."""
@@ -338,8 +381,26 @@ class CausalLanguageModel(nn.Module):
             raise ValueError("max_new_tokens must be non-negative")
         if not math.isfinite(temperature) or temperature <= 0.0:
             raise ValueError("temperature must be positive")
-        if top_k is not None and not 1 <= top_k <= self.config.vocab_size:
+        if top_k is not None and (
+            isinstance(top_k, bool)
+            or not isinstance(top_k, int)
+            or not 1 <= top_k <= self.config.vocab_size
+        ):
             raise ValueError("top_k must be within the vocabulary size")
+        if (
+            isinstance(top_p, bool)
+            or not isinstance(top_p, (int, float))
+            or not math.isfinite(top_p)
+            or not 0.0 < top_p <= 1.0
+        ):
+            raise ValueError("top_p must be finite and in (0, 1]")
+        if (
+            isinstance(repetition_penalty, bool)
+            or not isinstance(repetition_penalty, (int, float))
+            or not math.isfinite(repetition_penalty)
+            or repetition_penalty <= 0.0
+        ):
+            raise ValueError("repetition_penalty must be positive and finite")
         if eos_token_id is not None and not 0 <= eos_token_id < self.config.vocab_size:
             raise ValueError("eos_token_id must be within the vocabulary size")
         if input_ids.ndim != 2 or input_ids.dtype != torch.long:
@@ -360,11 +421,14 @@ class CausalLanguageModel(nn.Module):
             logits, past_key_values = self.forward_with_cache(context)
             for _ in range(max_new_tokens):
                 next_logits = logits[:, -1, :] / temperature
-                if top_k is not None:
-                    threshold = torch.topk(next_logits, top_k, dim=-1).values[:, -1]
-                    next_logits = next_logits.masked_fill(
-                        next_logits < threshold.unsqueeze(-1), float("-inf")
-                    )
+                recent_history = result[:, -self.config.context_length :]
+                next_logits = _filter_generation_logits(
+                    next_logits,
+                    recent_history,
+                    top_k=top_k,
+                    top_p=float(top_p),
+                    repetition_penalty=float(repetition_penalty),
+                )
                 probabilities = F.softmax(next_logits, dim=-1)
                 next_token = torch.multinomial(probabilities, num_samples=1)
                 if eos_token_id is not None:

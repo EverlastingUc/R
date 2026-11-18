@@ -179,6 +179,8 @@ def stream_chat_response(
     max_new_tokens: int = 128,
     temperature: float = 0.8,
     top_k: int | None = 40,
+    top_p: float = 1.0,
+    repetition_penalty: float = 1.0,
 ) -> Iterator[str]:
     """Yield decoded assistant text as the model generates each token."""
     tokenizer = getattr(model, "tokenizer", None)
@@ -195,6 +197,8 @@ def stream_chat_response(
         max_new_tokens=max_new_tokens,
         temperature=temperature,
         top_k=top_k,
+        top_p=top_p,
+        repetition_penalty=repetition_penalty,
         eos_token_id=tokenizer.eos_id,
     )
     yield from _decode_token_stream(tokenizer, generated_tokens)
@@ -207,6 +211,8 @@ def generate_chat_response(
     max_new_tokens: int = 128,
     temperature: float = 0.8,
     top_k: int | None = 40,
+    top_p: float = 1.0,
+    repetition_penalty: float = 1.0,
 ) -> str:
     """Generate a complete response using the same UTF-8-safe streaming path."""
     return "".join(
@@ -216,6 +222,8 @@ def generate_chat_response(
             max_new_tokens=max_new_tokens,
             temperature=temperature,
             top_k=top_k,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
         )
     ).strip()
 
@@ -232,6 +240,8 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=128)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--top-k", type=int, default=40)
+    parser.add_argument("--top-p", type=float, default=1.0)
+    parser.add_argument("--repetition-penalty", type=float, default=1.0)
     parser.add_argument("--device", default="cpu")
     parser.add_argument(
         "--no-stream",
@@ -264,6 +274,8 @@ def main() -> None:
                 max_new_tokens=args.max_new_tokens,
                 temperature=args.temperature,
                 top_k=args.top_k,
+                top_p=args.top_p,
+                repetition_penalty=args.repetition_penalty,
             )
             print(f"Entropy: {response}")
         else:
@@ -275,6 +287,8 @@ def main() -> None:
                 max_new_tokens=args.max_new_tokens,
                 temperature=args.temperature,
                 top_k=args.top_k,
+                top_p=args.top_p,
+                repetition_penalty=args.repetition_penalty,
             ):
                 sys.stdout.write(chunk)
                 sys.stdout.flush()
