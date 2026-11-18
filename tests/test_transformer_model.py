@@ -436,7 +436,6 @@ def test_rope_gradient_checkpointing_matches_regular_gradients():
             assert torch.allclose(expected.grad, actual.grad, atol=1e-6)
 
 
-
 def test_rope_sliding_attention_matches_reference_mask():
     torch.manual_seed(401)
     model = CausalLanguageModel(
