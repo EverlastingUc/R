@@ -71,13 +71,19 @@ def audit_chat_dataset(
             invalid_count += 1
             issues.append(
                 {
-                    "source": path.name if source.is_file() else path.relative_to(source).as_posix(),
+                    "source": (
+                        path.name
+                        if source.is_file()
+                        else path.relative_to(source).as_posix()
+                    ),
                     "line": "0",
                     "reason": "file is not valid UTF-8",
                 }
             )
             continue
-        relative = path.name if source.is_file() else path.relative_to(source).as_posix()
+        relative = (
+            path.name if source.is_file() else path.relative_to(source).as_posix()
+        )
         for line_number, line in enumerate(decoded.splitlines(), 1):
             line_count += 1
             if not line.strip():
