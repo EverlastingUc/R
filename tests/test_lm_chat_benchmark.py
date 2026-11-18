@@ -191,6 +191,5 @@ def test_chat_benchmark_rejects_invalid_generation_parameters(tmp_path, override
         )
 
 
-
 def test_token_f1_returns_zero_when_nonempty_answers_do_not_overlap():
     assert _token_f1("cat", "dog") == 0.0
