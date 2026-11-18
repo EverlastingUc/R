@@ -175,7 +175,9 @@ class CausalLanguageModel(nn.Module):
 
         layers = self.blocks.layers
         if past_key_values is not None and len(past_key_values) != len(layers):
-            raise ValueError("past_key_values must contain one entry per Transformer layer")
+            raise ValueError(
+                "past_key_values must contain one entry per Transformer layer"
+            )
 
         past_length = 0
         if past_key_values is not None:
@@ -185,7 +187,9 @@ class CausalLanguageModel(nn.Module):
                 if key.ndim != 4 or value.shape != key.shape:
                     raise ValueError("cached key/value tensors have invalid shapes")
                 if key.shape[:2] != expected_shape:
-                    raise ValueError("cached key/value batch or head dimensions mismatch")
+                    raise ValueError(
+                        "cached key/value batch or head dimensions mismatch"
+                    )
                 if key.device != input_ids.device or value.device != input_ids.device:
                     raise ValueError("cached key/value tensors must match input device")
                 if key.dtype != self.token_embedding.weight.dtype:
@@ -260,17 +264,17 @@ class CausalLanguageModel(nn.Module):
                     is_causal=False,
                 )
 
-            attended = attended.transpose(1, 2).contiguous().view(
-                batch_size, sequence_length, self.config.embedding_dim
+            attended = (
+                attended.transpose(1, 2)
+                .contiguous()
+                .view(batch_size, sequence_length, self.config.embedding_dim)
             )
             attended = attention.out_proj(attended)
             if layer.norm_first:
                 hidden = hidden + layer.dropout1(attended)
                 feedforward_input = layer.norm2(hidden)
                 feedforward = layer.linear2(
-                    layer.dropout(
-                        layer.activation(layer.linear1(feedforward_input))
-                    )
+                    layer.dropout(layer.activation(layer.linear1(feedforward_input)))
                 )
                 hidden = hidden + layer.dropout2(feedforward)
             else:

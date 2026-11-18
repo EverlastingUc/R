@@ -145,7 +145,6 @@ def test_generation_rejects_invalid_eos_token():
         )
 
 
-
 def test_forward_with_cache_matches_full_sequence_logits():
     torch.manual_seed(101)
     model = CausalLanguageModel(
