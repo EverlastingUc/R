@@ -1,6 +1,8 @@
 """Tests for DPO preference alignment primitives."""
 
-import torch
+import pytest
+
+torch = pytest.importorskip("torch")
 
 from entropy_lm.model import CausalLanguageModel, TransformerConfig
 from entropy_lm.preference_training import (
