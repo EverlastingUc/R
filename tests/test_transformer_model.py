@@ -391,7 +391,7 @@ def test_rope_validation_and_legacy_architecture_metadata():
 
     with pytest.raises(ValueError, match="even attention head dimension"):
         TransformerConfig(
-            embedding_dim=12,
+            embedding_dim=9,
             num_heads=3,
             position_encoding="rope",
         )

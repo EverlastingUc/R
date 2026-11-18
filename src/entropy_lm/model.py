@@ -62,9 +62,7 @@ def _apply_rotary_position_embedding(
     inverse_frequency = 1.0 / (
         base
         ** (
-            torch.arange(
-                0, head_dim, 2, dtype=torch.float32, device=query.device
-            )
+            torch.arange(0, head_dim, 2, dtype=torch.float32, device=query.device)
             / head_dim
         )
     )
