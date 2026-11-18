@@ -189,11 +189,13 @@ def test_generation_with_cache_matches_recomputed_sliding_window():
     for _ in range(5):
         context = expected[:, -model.config.context_length :]
         logits, _ = model(context)
-        probabilities = F.softmax(logits[:, -1, :], dim=-1)
-        next_token = torch.multinomial(
-            torch.topk(probabilities, 1, dim=-1).indices,
-            num_samples=1,
+        next_logits = logits[:, -1, :]
+        threshold = torch.topk(next_logits, 1, dim=-1).values[:, -1]
+        next_logits = next_logits.masked_fill(
+            next_logits < threshold.unsqueeze(-1), float("-inf")
         )
+        probabilities = F.softmax(next_logits, dim=-1)
+        next_token = torch.multinomial(probabilities, num_samples=1)
         expected = torch.cat((expected, next_token), dim=1)
 
     assert torch.equal(cached, expected)
