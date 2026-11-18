@@ -505,5 +505,5 @@ def test_rope_sliding_window_generation_and_validation():
 
     with pytest.raises(ValueError, match="attention_window"):
         TransformerConfig(attention_window=0)
-    with pytest.raises(ValueError, match="requires RoPE"):
+    with pytest.raises(ValueError, match="require RoPE"):
         TransformerConfig(attention_window=4, position_encoding="learned")
