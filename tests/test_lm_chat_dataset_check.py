@@ -19,8 +19,7 @@ def _prepared(tmp_path):
     source = tmp_path / "conversations.jsonl"
     source.write_text(
         "".join(
-            json.dumps({"messages": _conversation(index)}) + "\n"
-            for index in range(12)
+            json.dumps({"messages": _conversation(index)}) + "\n" for index in range(12)
         ),
         encoding="utf-8",
     )

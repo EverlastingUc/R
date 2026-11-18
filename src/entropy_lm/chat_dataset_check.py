@@ -112,7 +112,9 @@ def check_prepared_chat_dataset(dataset_dir: str | Path) -> dict[str, Any]:
             if document_map[digest] != (source, split):
                 raise ValueError(f"{path.name}:{line_number} split/source mismatch")
             if digest in observed:
-                raise ValueError("conversation hash occurs more than once across splits")
+                raise ValueError(
+                    "conversation hash occurs more than once across splits"
+                )
 
             input_ids = record.get("input_ids")
             labels = record.get("labels")
@@ -157,7 +159,9 @@ def check_prepared_chat_dataset(dataset_dir: str | Path) -> dict[str, Any]:
 
     if set(observed) != set(document_map):
         missing = len(set(document_map) - set(observed))
-        raise ValueError(f"{missing} manifest conversations are missing from split files")
+        raise ValueError(
+            f"{missing} manifest conversations are missing from split files"
+        )
     for split in ("train", "validation", "test"):
         declared = declared_splits.get(split)
         if isinstance(declared, bool) or not isinstance(declared, int):
