@@ -53,15 +53,15 @@ def _read_benchmark_dataset(path: Path) -> tuple[list[dict[str, Any]], str]:
         try:
             record = json.loads(line)
         except json.JSONDecodeError as error:
-            raise ValueError(
-                f"invalid benchmark JSON at line {line_number}"
-            ) from error
+            raise ValueError(f"invalid benchmark JSON at line {line_number}") from error
         if not isinstance(record, dict):
             raise TypeError(f"benchmark case at line {line_number} must be an object")
 
         case_id = record.get("id")
         if not isinstance(case_id, str) or not case_id.strip():
-            raise ValueError(f"benchmark case at line {line_number} needs a non-empty id")
+            raise ValueError(
+                f"benchmark case at line {line_number} needs a non-empty id"
+            )
         if case_id in seen_ids:
             raise ValueError(f"duplicate benchmark case id: {case_id}")
         seen_ids.add(case_id)
@@ -100,7 +100,10 @@ def _read_benchmark_dataset(path: Path) -> tuple[list[dict[str, Any]], str]:
 
 
 def _score_case(
-    prediction: str, reference: str, must_include: list[str], must_not_include: list[str]
+    prediction: str,
+    reference: str,
+    must_include: list[str],
+    must_not_include: list[str],
 ) -> dict[str, Any]:
     normalized_prediction = _normalize_text(prediction)
     normalized_reference = _normalize_text(reference)
@@ -185,9 +188,7 @@ def evaluate_chat_benchmark(
                 required_case_passes += int(all(scores["required_terms"].values()))
             if case["must_not_include"]:
                 forbidden_case_count += 1
-                forbidden_case_violations += int(
-                    bool(scores["forbidden_terms_found"])
-                )
+                forbidden_case_violations += int(bool(scores["forbidden_terms_found"]))
             scored_cases.append(
                 {
                     "id": case["id"],

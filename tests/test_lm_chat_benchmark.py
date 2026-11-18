@@ -43,7 +43,9 @@ def test_reference_scorer_reports_exact_match_and_phrase_checks():
 
 
 def test_reference_scorer_penalizes_missing_and_forbidden_terms():
-    scores = _score_case("The answer is five.", "The answer is four.", ["four"], ["five"])
+    scores = _score_case(
+        "The answer is five.", "The answer is four.", ["four"], ["five"]
+    )
     assert scores["normalized_exact_match"] is False
     assert 0.0 < scores["token_f1"] < 1.0
     assert scores["required_terms"] == {"four": False}
