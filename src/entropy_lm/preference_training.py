@@ -53,9 +53,7 @@ def _read_preference_pairs(
         chosen = record.get("chosen")
         rejected = record.get("rejected")
         if not isinstance(prompt, list):
-            raise TypeError(
-                f"preference prompt at line {line_number} must be messages"
-            )
+            raise TypeError(f"preference prompt at line {line_number} must be messages")
         format_chat_prompt(prompt)
         if (
             not isinstance(chosen, str)
