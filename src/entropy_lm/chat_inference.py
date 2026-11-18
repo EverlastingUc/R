@@ -137,9 +137,9 @@ def build_chat_input_ids(
             available - minimum_user_length,
         )
         if system_capacity >= len(system_header):
-            system_tokens = system_header + system_body[
-                : system_capacity - len(system_header)
-            ]
+            system_tokens = (
+                system_header + system_body[: system_capacity - len(system_header)]
+            )
         else:
             system_tokens = []
 
