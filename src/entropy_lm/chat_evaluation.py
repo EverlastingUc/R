@@ -22,7 +22,6 @@ from entropy_lm.inference import load_model_checkpoint
 from entropy_lm.training import _tokenizer_metadata
 
 
-
 @torch.no_grad()
 def _evaluate_turn_positions(
     model: torch.nn.Module,
@@ -41,15 +40,24 @@ def _evaluate_turn_positions(
     }
     records = []
     path = dataset_directory / "test.jsonl"
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), 1
+    ):
         try:
             record = json.loads(line)
         except json.JSONDecodeError as error:
-            raise ValueError(f"invalid test JSONL record at line {line_number}") from error
-        if not isinstance(record, dict) or record.get("tokenizer_fingerprint") != fingerprint:
+            raise ValueError(
+                f"invalid test JSONL record at line {line_number}"
+            ) from error
+        if (
+            not isinstance(record, dict)
+            or record.get("tokenizer_fingerprint") != fingerprint
+        ):
             raise ValueError("test record metadata is invalid")
         token_ids, labels, turns = (
-            record.get("input_ids"), record.get("labels"), record.get("assistant_turns")
+            record.get("input_ids"),
+            record.get("labels"),
+            record.get("assistant_turns"),
         )
         if (
             not isinstance(token_ids, list)
@@ -89,9 +97,9 @@ def _evaluate_turn_positions(
         categories = {}
         for turn_index in range(turn_count):
             category = (
-                "first" if turn_count == 1 or turn_index == 0
-                else "final" if turn_index == turn_count - 1
-                else "middle"
+                "first"
+                if turn_count == 1 or turn_index == 0
+                else "final" if turn_index == turn_count - 1 else "middle"
             )
             categories[turn_index] = category
             totals[category]["turns"] += 1
@@ -113,18 +121,26 @@ def _evaluate_turn_positions(
                 for label, turn in zip(window_targets, window_turns)
             ):
                 padding = context_length - len(window_inputs)
-                windows.append((
-                    window_inputs + [tokenizer.eos_id] * padding,
-                    window_targets + [IGNORE_INDEX] * padding,
-                    window_turns + [-1] * padding,
-                ))
+                windows.append(
+                    (
+                        window_inputs + [tokenizer.eos_id] * padding,
+                        window_targets + [IGNORE_INDEX] * padding,
+                        window_turns + [-1] * padding,
+                    )
+                )
             score_start = score_end
 
         for offset in range(0, len(windows), batch_size):
             batch = windows[offset : offset + batch_size]
-            inputs = torch.tensor([item[0] for item in batch], dtype=torch.long, device=device)
-            targets = torch.tensor([item[1] for item in batch], dtype=torch.long, device=device)
-            turn_ids = torch.tensor([item[2] for item in batch], dtype=torch.long, device=device)
+            inputs = torch.tensor(
+                [item[0] for item in batch], dtype=torch.long, device=device
+            )
+            targets = torch.tensor(
+                [item[1] for item in batch], dtype=torch.long, device=device
+            )
+            turn_ids = torch.tensor(
+                [item[2] for item in batch], dtype=torch.long, device=device
+            )
             logits, _ = model(inputs)
             losses = F.cross_entropy(
                 logits.reshape(-1, logits.shape[-1]),
@@ -135,7 +151,10 @@ def _evaluate_turn_positions(
             for row in range(len(batch)):
                 for position in range(context_length):
                     turn_index = int(turn_ids[row, position].item())
-                    if turn_index < 0 or int(targets[row, position].item()) == IGNORE_INDEX:
+                    if (
+                        turn_index < 0
+                        or int(targets[row, position].item()) == IGNORE_INDEX
+                    ):
                         continue
                     bucket = totals[categories[turn_index]]
                     bucket["loss_sum"] += float(losses[row, position].item())
