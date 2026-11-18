@@ -42,14 +42,20 @@ def _read_preference_pairs(
         try:
             record = json.loads(line)
         except json.JSONDecodeError as error:
-            raise ValueError(f"invalid preference JSON at line {line_number}") from error
+            raise ValueError(
+                f"invalid preference JSON at line {line_number}"
+            ) from error
         if not isinstance(record, dict):
-            raise TypeError(f"preference record at line {line_number} must be an object")
+            raise TypeError(
+                f"preference record at line {line_number} must be an object"
+            )
         prompt = record.get("prompt")
         chosen = record.get("chosen")
         rejected = record.get("rejected")
         if not isinstance(prompt, list):
-            raise TypeError(f"preference prompt at line {line_number} must be messages")
+            raise TypeError(
+                f"preference prompt at line {line_number} must be messages"
+            )
         format_chat_prompt(prompt)
         if (
             not isinstance(chosen, str)
@@ -57,7 +63,9 @@ def _read_preference_pairs(
             or not isinstance(rejected, str)
             or not rejected.strip()
         ):
-            raise ValueError(f"chosen and rejected must be non-empty strings at line {line_number}")
+            raise ValueError(
+                f"chosen and rejected must be non-empty strings at line {line_number}"
+            )
         if chosen.strip() == rejected.strip():
             raise ValueError(f"chosen and rejected must differ at line {line_number}")
 
@@ -66,7 +74,9 @@ def _read_preference_pairs(
         )
         available = model.config.context_length - len(prompt_ids)
         if available < 1:
-            raise ValueError(f"prompt leaves no response capacity at line {line_number}")
+            raise ValueError(
+                f"prompt leaves no response capacity at line {line_number}"
+            )
         chosen_ids = tokenizer.encode(chosen) + [tokenizer.eos_id]
         rejected_ids = tokenizer.encode(rejected) + [tokenizer.eos_id]
         if len(chosen_ids) > available:
@@ -123,9 +133,9 @@ def _sequence_log_probabilities(
         target_mask[row, response_start : len(target_tokens)] = True
 
     logits, _ = model(inputs)
-    token_log_probs = F.log_softmax(logits, dim=-1).gather(
-        -1, targets.unsqueeze(-1)
-    ).squeeze(-1)
+    token_log_probs = (
+        F.log_softmax(logits, dim=-1).gather(-1, targets.unsqueeze(-1)).squeeze(-1)
+    )
     return (token_log_probs * target_mask).sum(dim=-1)
 
 
@@ -198,7 +208,11 @@ def train_with_preferences(
     """Align an SFT model to chosen/rejected responses using DPO."""
     if isinstance(epochs, bool) or not isinstance(epochs, int) or epochs < 1:
         raise ValueError("epochs must be a positive integer")
-    if isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size < 1:
+    if (
+        isinstance(batch_size, bool)
+        or not isinstance(batch_size, int)
+        or batch_size < 1
+    ):
         raise ValueError("batch_size must be a positive integer")
     if not math.isfinite(learning_rate) or learning_rate <= 0:
         raise ValueError("learning_rate must be positive and finite")
@@ -332,7 +346,9 @@ def main() -> None:
     parser.add_argument("--beta", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cpu")
-    parser.add_argument("--output", type=Path, default=Path("entropy-preference-model.pt"))
+    parser.add_argument(
+        "--output", type=Path, default=Path("entropy-preference-model.pt")
+    )
     args = parser.parse_args()
     result = train_with_preferences(
         args.base_checkpoint,
