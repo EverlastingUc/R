@@ -142,6 +142,7 @@ def test_end_to_end_chat_benchmark_is_reproducible_and_preserves_rng(tmp_path):
         benchmark,
         max_new_tokens=8,
         top_k=1,
+        stop_sequences=["STOP_NOW"],
         seed=123,
     )
 

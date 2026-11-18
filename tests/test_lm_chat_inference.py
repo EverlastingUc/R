@@ -168,6 +168,43 @@ def test_streaming_chat_decodes_utf8_safely(tokenizer, tmp_path):
     )
 
 
+def test_streaming_chat_hides_a_complete_stop_marker():
+    from entropy_lm.chat_inference import generate_chat_response
+
+    tokenizer = ByteTokenizer()
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=tokenizer.vocab_size,
+            context_length=64,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+        )
+    )
+    model.tokenizer = tokenizer
+    closed = []
+    generated_ids = tokenizer.encode("visible STOP hidden") + [tokenizer.eos_id]
+
+    def fixed_stream(input_ids, **kwargs):
+        try:
+            for token_id in generated_ids:
+                yield torch.tensor(
+                    [[token_id]], dtype=torch.long, device=input_ids.device
+                )
+        finally:
+            closed.append(True)
+
+    model.generate_stream = fixed_stream
+    response = generate_chat_response(
+        model,
+        [{"role": "user", "content": "Return the phrase."}],
+        stop_sequences=["STOP"],
+    )
+    assert response == "visible"
+    assert closed == [True]
+
+
 def test_context_packing_preserves_system_and_latest_user_turn():
     tokenizer = ByteTokenizer()
     messages = [
@@ -214,7 +251,6 @@ def test_context_packing_rejects_context_too_small_for_chat_prefix():
             [{"role": "user", "content": "Hello."}],
             context_length=4,
         )
-
 
 
 def test_stream_until_stop_handles_markers_split_across_chunks_and_closes():
