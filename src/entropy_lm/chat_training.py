@@ -356,9 +356,11 @@ def train_on_conversations(
         legacy_run_config = dict(run_config)
         legacy_run_config.pop("precision")
         legacy_run_config.pop("gradient_checkpointing")
+        legacy_run_config.pop("sampling_strategy")
         compatible_legacy = (
             precision == "fp32"
             and not gradient_checkpointing
+            and sampling_strategy == "uniform-window"
             and saved_run_config == legacy_run_config
         )
         if saved_run_config != run_config and not compatible_legacy:
