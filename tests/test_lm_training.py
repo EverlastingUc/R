@@ -304,3 +304,68 @@ def test_fp16_training_rejects_cpu_device():
     corpus = "A corpus that is long enough to pass preprocessing. " * 80
     with pytest.raises(ValueError, match="requires a CUDA device"):
         train_language_model(corpus, precision="fp16")
+
+
+
+def test_training_supports_rope_and_saves_architecture_metadata(tmp_path):
+    from entropy_lm.inference import load_model_checkpoint
+
+    corpus = "Rotary position embeddings are used by this tiny corpus. " * 80
+    checkpoint = tmp_path / "rope-model.pt"
+    history = train_language_model(
+        corpus,
+        config=TransformerConfig(
+            vocab_size=258,
+            context_length=8,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+            position_encoding="rope",
+        ),
+        steps=1,
+        batch_size=2,
+        eval_interval=1,
+        eval_batches=1,
+        tokenizer_type="byte",
+        checkpoint_path=checkpoint,
+    )
+    assert len(history) == 1
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    assert payload["architecture"]["position_encoding"] == "rope"
+    assert "position_embedding.weight" not in payload["model_state"]
+    model = load_model_checkpoint(checkpoint)
+    assert model.config.position_encoding == "rope"
+
+
+def test_resume_accepts_legacy_learned_position_architecture_metadata(tmp_path):
+    corpus = "A compact legacy checkpoint training corpus. " * 80
+    checkpoint = tmp_path / "legacy-learned.pt"
+    options = {
+        "config": TransformerConfig(
+            vocab_size=258,
+            context_length=8,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+        ),
+        "steps": 2,
+        "batch_size": 2,
+        "eval_interval": 1,
+        "eval_batches": 1,
+        "checkpoint_path": checkpoint,
+    }
+    train_language_model(corpus, max_steps_per_run=1, **options)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    payload["architecture"].pop("position_encoding")
+    payload["architecture"].pop("rope_base")
+    torch.save(payload, checkpoint)
+
+    history = train_language_model(
+        corpus,
+        resume_from=checkpoint,
+        **options,
+    )
+    assert len(history) == 2
+    assert history[-1]["step"] == 2

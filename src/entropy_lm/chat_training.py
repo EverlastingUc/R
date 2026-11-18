@@ -16,7 +16,11 @@ from torch.nn import functional as F
 
 from entropy_lm.bpe_tokenizer import BPETokenizer
 from entropy_lm.chat_data import IGNORE_INDEX
-from entropy_lm.model import CausalLanguageModel, TransformerConfig
+from entropy_lm.model import (
+    CausalLanguageModel,
+    TransformerConfig,
+    architecture_matches_checkpoint,
+)
 from entropy_lm.tokenizer import ByteTokenizer
 from entropy_lm.training import (
     _autocast_context,
@@ -308,7 +312,7 @@ def train_on_conversations(
         saved = torch.load(resume_path, map_location="cpu", weights_only=True)
         if not isinstance(saved, dict) or saved.get("format_version") != 2:
             raise ValueError("SFT resume requires a version 2 checkpoint")
-        if saved.get("architecture") != asdict(architecture):
+        if not architecture_matches_checkpoint(saved.get("architecture"), architecture):
             raise ValueError("SFT resume checkpoint architecture does not match")
         if saved.get("tokenizer") != _tokenizer_metadata(tokenizer):
             raise ValueError("SFT resume checkpoint tokenizer does not match")
@@ -530,6 +534,10 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
     parser.add_argument("--context-length", type=int, default=128)
+    parser.add_argument(
+        "--position-encoding", choices=("learned", "rope"), default="learned"
+    )
+    parser.add_argument("--rope-base", type=float, default=10000.0)
     parser.add_argument("--embedding-dim", type=int, default=128)
     parser.add_argument("--heads", type=int, default=4)
     parser.add_argument("--layers", type=int, default=4)
@@ -567,6 +575,8 @@ def main() -> None:
             num_heads=args.heads,
             num_layers=args.layers,
             dropout=args.dropout,
+            position_encoding=args.position_encoding,
+            rope_base=args.rope_base,
         ),
         steps=args.steps,
         batch_size=args.batch_size,
