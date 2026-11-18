@@ -122,14 +122,18 @@ def check_prepared_chat_dataset(dataset_dir: str | Path) -> dict[str, Any]:
                 or len(input_ids) < 2
                 or len(input_ids) != len(labels)
             ):
-                raise ValueError(f"{path.name}:{line_number} token arrays are malformed")
+                raise ValueError(
+                    f"{path.name}:{line_number} token arrays are malformed"
+                )
             if any(
                 isinstance(token, bool)
                 or not isinstance(token, int)
                 or not 0 <= token < vocab_size
                 for token in input_ids
             ):
-                raise ValueError(f"{path.name}:{line_number} input token is out of range")
+                raise ValueError(
+                    f"{path.name}:{line_number} input token is out of range"
+                )
             if any(
                 isinstance(label, bool)
                 or not isinstance(label, int)
