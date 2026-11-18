@@ -272,11 +272,10 @@ class CausalLanguageModel(nn.Module):
             query_positions = torch.arange(sequence_length, device=hidden.device)
             key_positions = torch.arange(sequence_length, device=hidden.device)
             local_causal_mask = (
-                (key_positions.unsqueeze(0) <= query_positions.unsqueeze(1))
-                & (
-                    key_positions.unsqueeze(0)
-                    > query_positions.unsqueeze(1) - attention_window
-                )
+                key_positions.unsqueeze(0) <= query_positions.unsqueeze(1)
+            ) & (
+                key_positions.unsqueeze(0)
+                > query_positions.unsqueeze(1) - attention_window
             )
             attended = F.scaled_dot_product_attention(
                 query,
@@ -498,8 +497,7 @@ class CausalLanguageModel(nn.Module):
                 if self.config.attention_window is not None:
                     causal_mask = causal_mask & (
                         key_positions.unsqueeze(0)
-                        > query_positions.unsqueeze(1)
-                        - self.config.attention_window
+                        > query_positions.unsqueeze(1) - self.config.attention_window
                     )
                 attended = F.scaled_dot_product_attention(
                     query,
