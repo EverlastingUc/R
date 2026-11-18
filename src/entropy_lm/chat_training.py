@@ -137,7 +137,7 @@ def _load_chat_windows(
         score_start = 1
         while score_start < len(token_ids):
             score_end = min(len(token_ids), score_start + stride)
-            context_start = max(0, score_start - (context_length - stride))
+            context_start = max(0, score_start - (context_length - stride) - 1)
             window_inputs = token_ids[context_start : score_end - 1]
             window_targets = labels[context_start + 1 : score_end]
             scored_targets = [
