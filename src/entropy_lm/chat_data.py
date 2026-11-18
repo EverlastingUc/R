@@ -179,11 +179,13 @@ def _tokenizer_metadata(tokenizer: ByteTokenizer | BPETokenizer) -> dict[str, An
     return {"type": "utf8-byte", "vocab_size": tokenizer.vocab_size}
 
 
-def _encode_conversation(
+def _encode_conversation_with_turns(
     messages: list[dict[str, str]], tokenizer: ByteTokenizer | BPETokenizer
-) -> tuple[list[int], list[int]]:
+) -> tuple[list[int], list[int], list[dict[str, int]]]:
+    """Encode a conversation and retain token spans for each assistant turn."""
     input_ids = [tokenizer.bos_id]
     labels = [IGNORE_INDEX]
+    assistant_turns: list[dict[str, int]] = []
     for message in messages:
         header_ids = tokenizer.encode(f"<|{message['role']}|>\n")
         content_ids = tokenizer.encode(message["content"] + "\n")
@@ -191,15 +193,30 @@ def _encode_conversation(
         labels.extend([IGNORE_INDEX] * len(header_ids))
         input_ids.extend(content_ids)
         if message["role"] == "assistant":
+            target_start = len(labels)
             labels.extend(content_ids)
             input_ids.append(tokenizer.eos_id)
             labels.append(tokenizer.eos_id)
+            assistant_turns.append(
+                {
+                    "turn_index": len(assistant_turns),
+                    "target_start": target_start,
+                    "target_end": len(labels),
+                }
+            )
         else:
             labels.extend([IGNORE_INDEX] * len(content_ids))
     if not any(label != IGNORE_INDEX for label in labels):
         raise ValueError("conversation has no assistant targets")
-    return input_ids, labels
+    return input_ids, labels, assistant_turns
 
+
+def _encode_conversation(
+    messages: list[dict[str, str]], tokenizer: ByteTokenizer | BPETokenizer
+) -> tuple[list[int], list[int]]:
+    """Backward-compatible conversation encoder without turn metadata."""
+    input_ids, labels, _ = _encode_conversation_with_turns(messages, tokenizer)
+    return input_ids, labels
 
 def prepare_chat_dataset(
     input_path: str | Path,
@@ -258,7 +275,9 @@ def prepare_chat_dataset(
         input_count = 0
         target_count = 0
         for item in items:
-            input_ids, labels = _encode_conversation(item["messages"], tokenizer)
+            input_ids, labels, assistant_turns = _encode_conversation_with_turns(
+                item["messages"], tokenizer
+            )
             input_count += len(input_ids)
             target_count += sum(label != IGNORE_INDEX for label in labels)
             lines.append(
@@ -268,6 +287,7 @@ def prepare_chat_dataset(
                         "sha256": item["sha256"],
                         "tokenizer_fingerprint": fingerprint,
                         "message_count": len(item["messages"]),
+                        "assistant_turns": assistant_turns,
                         "input_ids": input_ids,
                         "labels": labels,
                     },
