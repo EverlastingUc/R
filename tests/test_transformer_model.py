@@ -401,6 +401,7 @@ def test_rope_validation_and_legacy_architecture_metadata():
     legacy = asdict(learned)
     legacy.pop("position_encoding")
     legacy.pop("rope_base")
+    legacy.pop("attention_window")
     assert architecture_matches_checkpoint(legacy, learned)
     rope = TransformerConfig(position_encoding="rope")
     assert not architecture_matches_checkpoint(legacy, rope)

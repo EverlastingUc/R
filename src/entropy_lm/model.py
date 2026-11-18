@@ -158,6 +158,7 @@ def architecture_matches_checkpoint(
     legacy = dict(expected)
     legacy.pop("position_encoding")
     legacy.pop("rope_base")
+    legacy.pop("attention_window")
     return (
         config.position_encoding == "learned"
         and config.rope_base == 10000.0
