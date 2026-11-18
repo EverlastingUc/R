@@ -133,6 +133,7 @@ def test_end_to_end_chat_benchmark_is_reproducible_and_preserves_rng(tmp_path):
         output_path=output_path,
         max_new_tokens=8,
         top_k=1,
+        stop_sequences=["STOP_NOW"],
         seed=123,
     )
     rng_after = torch.get_rng_state()
@@ -150,6 +151,7 @@ def test_end_to_end_chat_benchmark_is_reproducible_and_preserves_rng(tmp_path):
     assert first["samples"] == 2
     assert first["generation"]["top_p"] == 1.0
     assert first["generation"]["repetition_penalty"] == 1.0
+    assert first["generation"]["stop_sequences"] == ["STOP_NOW"]
     assert first["benchmark_dataset_sha256"]
     assert len(first["checkpoint_sha256"]) == 64
     assert 0.0 <= first["metrics"]["normalized_exact_match_rate"] <= 1.0
@@ -214,7 +216,6 @@ def test_chat_benchmark_rejects_invalid_sampling_controls(tmp_path, overrides):
             tmp_path / "missing.jsonl",
             **overrides,
         )
-
 
 
 def test_chat_benchmark_records_stop_sequences(tmp_path, monkeypatch):

@@ -182,7 +182,9 @@ def evaluate_chat_benchmark(
         raise ValueError("repetition_penalty must be positive and finite")
     if stop_sequences is not None and (
         not isinstance(stop_sequences, list)
-        or any(not isinstance(sequence, str) or not sequence for sequence in stop_sequences)
+        or any(
+            not isinstance(sequence, str) or not sequence for sequence in stop_sequences
+        )
     ):
         raise ValueError("stop_sequences must be a list of non-empty strings")
     if isinstance(seed, bool) or not isinstance(seed, int):

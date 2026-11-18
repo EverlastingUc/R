@@ -237,16 +237,16 @@ def test_stream_until_stop_handles_markers_split_across_chunks_and_closes():
 def test_stream_until_stop_preserves_partial_prefix_when_no_stop_completes():
     from entropy_lm.chat_inference import _stream_until_stop
 
-    chunks = list(_stream_until_stop(iter(["visible", " END", " partial"]), ["END_MARKER"]))
+    chunks = list(
+        _stream_until_stop(iter(["visible", " END", " partial"]), ["END_MARKER"])
+    )
     assert "".join(chunks) == "visible END partial"
 
 
 def test_stream_until_stop_chooses_earliest_marker_and_validates_values():
     from entropy_lm.chat_inference import _stream_until_stop
 
-    chunks = list(
-        _stream_until_stop(iter(["before STOP then END"]), ["END", "STOP"])
-    )
+    chunks = list(_stream_until_stop(iter(["before STOP then END"]), ["END", "STOP"]))
     assert "".join(chunks) == "before "
 
     with pytest.raises(ValueError, match="non-empty strings"):
