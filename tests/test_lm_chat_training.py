@@ -296,7 +296,6 @@ def test_sft_fp16_training_rejects_cpu_device(tmp_path):
         train_on_conversations(prepared, precision="fp16")
 
 
-
 def test_sft_supports_rope_position_encoding_and_checkpoint_loading(tmp_path):
     from entropy_lm.inference import load_model_checkpoint
 

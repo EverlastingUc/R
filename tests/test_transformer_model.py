@@ -337,7 +337,6 @@ def test_generation_repetition_penalty_uses_recent_context_window():
     assert generated.shape == (1, 6)
 
 
-
 @pytest.mark.parametrize("position_encoding", ["learned", "rope"])
 def test_cached_attention_matches_full_forward_for_position_modes(position_encoding):
     torch.manual_seed(307)

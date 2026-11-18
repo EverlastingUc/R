@@ -306,7 +306,6 @@ def test_fp16_training_rejects_cpu_device():
         train_language_model(corpus, precision="fp16")
 
 
-
 def test_training_supports_rope_and_saves_architecture_metadata(tmp_path):
     from entropy_lm.inference import load_model_checkpoint
 
