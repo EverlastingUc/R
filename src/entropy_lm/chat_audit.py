@@ -214,7 +214,7 @@ def audit_chat_dataset(
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_name(destination.name + ".tmp")
         temporary.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True) + "\\n",
+            json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         temporary.replace(destination)
