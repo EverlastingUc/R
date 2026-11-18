@@ -29,4 +29,5 @@ jobs:
             tests/test_lm_inference.py \
             tests/test_lm_chat_training.py \
             tests/test_lm_chat_inference.py \
-            tests/test_lm_chat_evaluation.py
+            tests/test_lm_chat_evaluation.py \
+            tests/test_lm_chat_benchmark.py

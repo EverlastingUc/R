@@ -23,6 +23,7 @@ entropy-prepare-chat = "entropy_lm.chat_data:main"
 entropy-chat-train = "entropy_lm.chat_training:main"
 entropy-chat = "entropy_lm.chat_inference:main"
 entropy-evaluate-chat = "entropy_lm.chat_evaluation:main"
+entropy-benchmark-chat = "entropy_lm.chat_benchmark:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
