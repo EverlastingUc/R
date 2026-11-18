@@ -79,11 +79,12 @@ def test_check_detects_cross_split_conversation_duplication(tmp_path):
         check_prepared_chat_dataset(output)
 
 
-
 def test_check_detects_corrupted_assistant_turn_spans(tmp_path):
     output = _prepared(tmp_path)
     path = output / "train.jsonl"
-    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    records = [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
+    ]
     records[0]["assistant_turns"][0]["target_end"] = len(records[0]["labels"]) + 1
     path.write_text(
         "".join(json.dumps(record) + "\n" for record in records),
