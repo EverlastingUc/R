@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import Any, Literal
 
 import torch
 from torch import Tensor, nn
@@ -49,6 +50,49 @@ def _filter_generation_logits(
     return logits
 
 
+def _apply_rotary_position_embedding(
+    query: Tensor,
+    key: Tensor,
+    positions: Tensor,
+    *,
+    base: float,
+) -> tuple[Tensor, Tensor]:
+    """Apply interleaved rotary position encoding to query and key heads."""
+    head_dim = query.shape[-1]
+    inverse_frequency = 1.0 / (
+        base
+        ** (
+            torch.arange(
+                0, head_dim, 2, dtype=torch.float32, device=query.device
+            )
+            / head_dim
+        )
+    )
+    angles = positions.to(device=query.device, dtype=torch.float32).unsqueeze(
+        -1
+    ) * inverse_frequency.unsqueeze(0)
+    cosine = angles.cos().to(dtype=query.dtype)[None, None, :, :]
+    sine = angles.sin().to(dtype=query.dtype)[None, None, :, :]
+
+    query_even, query_odd = query[..., 0::2], query[..., 1::2]
+    key_even, key_odd = key[..., 0::2], key[..., 1::2]
+    rotated_query = torch.stack(
+        (
+            query_even * cosine - query_odd * sine,
+            query_even * sine + query_odd * cosine,
+        ),
+        dim=-1,
+    ).flatten(-2)
+    rotated_key = torch.stack(
+        (
+            key_even * cosine - key_odd * sine,
+            key_even * sine + key_odd * cosine,
+        ),
+        dim=-1,
+    ).flatten(-2)
+    return rotated_query, rotated_key
+
+
 @dataclass(frozen=True)
 class TransformerConfig:
     """Architecture settings for a causal decoder-only language model."""
@@ -59,6 +103,8 @@ class TransformerConfig:
     num_heads: int = 4
     num_layers: int = 4
     dropout: float = 0.1
+    position_encoding: Literal["learned", "rope"] = "learned"
+    rope_base: float = 10000.0
 
     def __post_init__(self) -> None:
         if (
@@ -76,6 +122,37 @@ class TransformerConfig:
             raise ValueError("embedding_dim must be divisible by num_heads")
         if not 0.0 <= self.dropout < 1.0:
             raise ValueError("dropout must be in [0, 1)")
+        if self.position_encoding not in ("learned", "rope"):
+            raise ValueError("position_encoding must be 'learned' or 'rope'")
+        if (
+            isinstance(self.rope_base, bool)
+            or not isinstance(self.rope_base, (int, float))
+            or not math.isfinite(self.rope_base)
+            or self.rope_base <= 1.0
+        ):
+            raise ValueError("rope_base must be positive, finite, and greater than one")
+        head_dim = self.embedding_dim // self.num_heads
+        if self.position_encoding == "rope" and head_dim % 2:
+            raise ValueError("RoPE requires an even attention head dimension")
+
+
+def architecture_matches_checkpoint(
+    saved_architecture: object, config: TransformerConfig
+) -> bool:
+    """Accept current metadata and legacy learned-position architecture metadata."""
+    if not isinstance(saved_architecture, dict):
+        return False
+    expected = asdict(config)
+    if saved_architecture == expected:
+        return True
+    legacy = dict(expected)
+    legacy.pop("position_encoding")
+    legacy.pop("rope_base")
+    return (
+        config.position_encoding == "learned"
+        and config.rope_base == 10000.0
+        and saved_architecture == legacy
+    )
 
 
 class CausalLanguageModel(nn.Module):
@@ -91,8 +168,10 @@ class CausalLanguageModel(nn.Module):
         self.config = config
         self.gradient_checkpointing = False
         self.token_embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
-        self.position_embedding = nn.Embedding(
-            config.context_length, config.embedding_dim
+        self.position_embedding = (
+            nn.Embedding(config.context_length, config.embedding_dim)
+            if config.position_encoding == "learned"
+            else None
         )
         layer = nn.TransformerEncoderLayer(
             d_model=config.embedding_dim,
@@ -114,7 +193,8 @@ class CausalLanguageModel(nn.Module):
     def _initialize_parameters(self) -> None:
         """Initialize cloned Transformer blocks independently."""
         nn.init.normal_(self.token_embedding.weight, mean=0.0, std=0.02)
-        nn.init.normal_(self.position_embedding.weight, mean=0.0, std=0.02)
+        if self.position_embedding is not None:
+            nn.init.normal_(self.position_embedding.weight, mean=0.0, std=0.02)
         for block in self.blocks.layers:
             for module in block.modules():
                 if isinstance(module, nn.Linear):
@@ -138,6 +218,59 @@ class CausalLanguageModel(nn.Module):
     def gradient_checkpointing_disable(self) -> None:
         """Disable activation checkpointing and retain normal forward activations."""
         self.gradient_checkpointing = False
+
+    def _forward_rope_layer(
+        self, layer: nn.TransformerEncoderLayer, hidden: Tensor, positions: Tensor
+    ) -> Tensor:
+        """Run one pre-norm Transformer layer with rotary attention positions."""
+        batch_size, sequence_length, _ = hidden.shape
+        attention = layer.self_attn
+        normalized = layer.norm1(hidden) if layer.norm_first else hidden
+        if attention.in_proj_weight is None:
+            raise RuntimeError("RoPE attention requires a packed QKV projection")
+        projected = F.linear(
+            normalized, attention.in_proj_weight, attention.in_proj_bias
+        )
+        query, key, value = projected.chunk(3, dim=-1)
+        head_dim = self.config.embedding_dim // self.config.num_heads
+        query = query.view(
+            batch_size, sequence_length, self.config.num_heads, head_dim
+        ).transpose(1, 2)
+        key = key.view(
+            batch_size, sequence_length, self.config.num_heads, head_dim
+        ).transpose(1, 2)
+        value = value.view(
+            batch_size, sequence_length, self.config.num_heads, head_dim
+        ).transpose(1, 2)
+        query, key = _apply_rotary_position_embedding(
+            query, key, positions, base=self.config.rope_base
+        )
+        attended = F.scaled_dot_product_attention(
+            query,
+            key,
+            value,
+            dropout_p=attention.dropout if self.training else 0.0,
+            is_causal=True,
+        )
+        attended = (
+            attended.transpose(1, 2)
+            .contiguous()
+            .view(batch_size, sequence_length, self.config.embedding_dim)
+        )
+        attended = attention.out_proj(attended)
+        if layer.norm_first:
+            hidden = hidden + layer.dropout1(attended)
+            feedforward_input = layer.norm2(hidden)
+            feedforward = layer.linear2(
+                layer.dropout(layer.activation(layer.linear1(feedforward_input)))
+            )
+            return hidden + layer.dropout2(feedforward)
+
+        hidden = layer.norm1(hidden + layer.dropout1(attended))
+        feedforward = layer.linear2(
+            layer.dropout(layer.activation(layer.linear1(hidden)))
+        )
+        return layer.norm2(hidden + layer.dropout2(feedforward))
 
     def forward(
         self,
@@ -165,7 +298,9 @@ class CausalLanguageModel(nn.Module):
             raise ValueError("input_ids contain an out-of-vocabulary token")
 
         positions = torch.arange(sequence_length, device=input_ids.device)
-        hidden = self.token_embedding(input_ids) + self.position_embedding(positions)
+        hidden = self.token_embedding(input_ids)
+        if self.position_embedding is not None:
+            hidden = hidden + self.position_embedding(positions)
         # True entries are masked: a position cannot attend to future tokens.
         causal_mask = torch.triu(
             torch.ones(
@@ -176,7 +311,19 @@ class CausalLanguageModel(nn.Module):
             ),
             diagonal=1,
         )
-        if self.training and self.gradient_checkpointing:
+        if self.config.position_encoding == "rope":
+            for layer in self.blocks.layers:
+                if self.training and self.gradient_checkpointing:
+                    hidden = checkpoint(
+                        lambda states, block=layer: self._forward_rope_layer(
+                            block, states, positions
+                        ),
+                        hidden,
+                        use_reentrant=False,
+                    )
+                else:
+                    hidden = self._forward_rope_layer(layer, hidden, positions)
+        elif self.training and self.gradient_checkpointing:
             for layer in self.blocks.layers:
                 hidden = checkpoint(layer, hidden, causal_mask, use_reentrant=False)
         else:
@@ -258,7 +405,9 @@ class CausalLanguageModel(nn.Module):
             past_length + sequence_length,
             device=input_ids.device,
         )
-        hidden = self.token_embedding(input_ids) + self.position_embedding(positions)
+        hidden = self.token_embedding(input_ids)
+        if self.position_embedding is not None:
+            hidden = hidden + self.position_embedding(positions)
         updated_cache: list[tuple[Tensor, Tensor]] = []
 
         for layer_index, layer in enumerate(layers):
@@ -280,6 +429,10 @@ class CausalLanguageModel(nn.Module):
             value = value.view(
                 batch_size, sequence_length, self.config.num_heads, head_dim
             ).transpose(1, 2)
+            if self.config.position_encoding == "rope":
+                query, key = _apply_rotary_position_embedding(
+                    query, key, positions, base=self.config.rope_base
+                )
 
             if past_key_values is not None:
                 previous_key, previous_value = past_key_values[layer_index]

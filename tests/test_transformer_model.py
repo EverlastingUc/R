@@ -335,3 +335,102 @@ def test_generation_repetition_penalty_uses_recent_context_window():
         repetition_penalty=1.2,
     )
     assert generated.shape == (1, 6)
+
+
+
+@pytest.mark.parametrize("position_encoding", ["learned", "rope"])
+def test_cached_attention_matches_full_forward_for_position_modes(position_encoding):
+    torch.manual_seed(307)
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=32,
+            context_length=12,
+            embedding_dim=16,
+            num_heads=4,
+            num_layers=2,
+            dropout=0.0,
+            position_encoding=position_encoding,
+        )
+    ).eval()
+    tokens = torch.randint(0, 32, (2, 7), dtype=torch.long)
+    full_logits, _ = model(tokens)
+    prefix_logits, cache = model.forward_with_cache(tokens[:, :-1])
+    final_logits, _ = model.forward_with_cache(tokens[:, -1:], cache)
+    assert torch.allclose(prefix_logits, full_logits[:, :-1], atol=1e-5)
+    assert torch.allclose(final_logits[:, -1], full_logits[:, -1], atol=1e-5)
+
+
+def test_rope_forward_is_causal_and_supports_cached_sliding_generation():
+    torch.manual_seed(311)
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=24,
+            context_length=6,
+            embedding_dim=12,
+            num_heads=3,
+            num_layers=2,
+            dropout=0.0,
+            position_encoding="rope",
+        )
+    ).eval()
+    first = torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+    future_changed = torch.tensor([[1, 2, 9, 8]], dtype=torch.long)
+    first_logits, _ = model(first)
+    changed_logits, _ = model(future_changed)
+    assert torch.allclose(first_logits[:, :2], changed_logits[:, :2], atol=1e-5)
+
+    torch.manual_seed(313)
+    generated = model.generate(first, max_new_tokens=8, top_k=1)
+    assert generated.shape == (1, 12)
+
+
+def test_rope_validation_and_legacy_architecture_metadata():
+    from dataclasses import asdict
+
+    from entropy_lm.model import architecture_matches_checkpoint
+
+    with pytest.raises(ValueError, match="even attention head dimension"):
+        TransformerConfig(
+            embedding_dim=12,
+            num_heads=3,
+            position_encoding="rope",
+        )
+    with pytest.raises(ValueError, match="rope_base"):
+        TransformerConfig(rope_base=1.0)
+
+    learned = TransformerConfig()
+    legacy = asdict(learned)
+    legacy.pop("position_encoding")
+    legacy.pop("rope_base")
+    assert architecture_matches_checkpoint(legacy, learned)
+    rope = TransformerConfig(position_encoding="rope")
+    assert not architecture_matches_checkpoint(legacy, rope)
+
+
+def test_rope_gradient_checkpointing_matches_regular_gradients():
+    torch.manual_seed(317)
+    config = TransformerConfig(
+        vocab_size=32,
+        context_length=8,
+        embedding_dim=16,
+        num_heads=4,
+        num_layers=2,
+        dropout=0.0,
+        position_encoding="rope",
+    )
+    baseline = CausalLanguageModel(config).train()
+    checkpointed = CausalLanguageModel(config).train()
+    checkpointed.load_state_dict(baseline.state_dict())
+    checkpointed.gradient_checkpointing_enable()
+    tokens = torch.randint(0, config.vocab_size, (2, 6), dtype=torch.long)
+    _, baseline_loss = baseline(tokens, tokens)
+    _, checkpointed_loss = checkpointed(tokens, tokens)
+    assert baseline_loss is not None and checkpointed_loss is not None
+    baseline_loss.backward()
+    checkpointed_loss.backward()
+    assert torch.allclose(baseline_loss, checkpointed_loss, atol=1e-6)
+    for expected, actual in zip(baseline.parameters(), checkpointed.parameters()):
+        if expected.grad is None or actual.grad is None:
+            assert expected.grad is None and actual.grad is None
+        else:
+            assert torch.allclose(expected.grad, actual.grad, atol=1e-6)
