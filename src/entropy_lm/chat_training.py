@@ -318,7 +318,7 @@ def train_on_conversations(
             scheduler.load_state_dict(resume_state["scheduler_state"])
             restored_history = saved_training.get("history")
             if not isinstance(restored_history, list):
-                raise ValueError("SFT resume checkpoint history is malformed")
+                raise TypeError("SFT resume checkpoint history must be a list")
             history = restored_history
             completed_steps = int(saved_training["completed_steps"])
             if not 0 <= completed_steps <= steps:
