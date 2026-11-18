@@ -72,10 +72,13 @@ def test_chat_evaluator_scores_only_assistant_targets_on_test_split(tmp_path):
     assert turn_metrics["first"]["assistant_tokens"] > 0
     assert turn_metrics["middle"]["assistant_tokens"] > 0
     assert turn_metrics["final"]["assistant_tokens"] > 0
-    assert sum(
-        turn_metrics[position]["assistant_tokens"]
-        for position in ("first", "middle", "final")
-    ) == result["assistant_targets_scored"]
+    assert (
+        sum(
+            turn_metrics[position]["assistant_tokens"]
+            for position in ("first", "middle", "final")
+        )
+        == result["assistant_targets_scored"]
+    )
     assert turn_metrics["first"]["perplexity"] > 0
     assert turn_metrics["final"]["perplexity"] > 0
 
