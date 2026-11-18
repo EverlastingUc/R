@@ -603,9 +603,7 @@ def main() -> None:
     parser.add_argument("--tokenizer", choices=("byte", "bpe"), default="bpe")
     parser.add_argument("--bpe-vocab-size", type=int, default=1000)
     parser.add_argument("--device", default="cpu")
-    parser.add_argument(
-        "--precision", choices=("fp32", "bf16", "fp16"), default="fp32"
-    )
+    parser.add_argument("--precision", choices=("fp32", "bf16", "fp16"), default="fp32")
     parser.add_argument(
         "--gradient-checkpointing",
         action="store_true",

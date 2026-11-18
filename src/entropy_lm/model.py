@@ -141,9 +141,7 @@ class CausalLanguageModel(nn.Module):
         )
         if self.training and self.gradient_checkpointing:
             for layer in self.blocks.layers:
-                hidden = checkpoint(
-                    layer, hidden, causal_mask, use_reentrant=False
-                )
+                hidden = checkpoint(layer, hidden, causal_mask, use_reentrant=False)
         else:
             hidden = self.blocks(hidden, mask=causal_mask)
         logits = self.output(self.final_norm(hidden))

@@ -270,7 +270,6 @@ def test_prepared_bpe_corpus_trains_and_evaluates_on_held_out_test(tmp_path) -> 
     assert len(result["checkpoint_sha256"]) == 64
 
 
-
 def test_training_supports_bf16_and_activation_checkpointing(tmp_path):
     corpus = "A small mixed precision language modeling corpus. " * 80
     checkpoint = tmp_path / "bf16-model.pt"

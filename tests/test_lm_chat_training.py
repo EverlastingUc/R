@@ -242,7 +242,6 @@ def test_sft_resume_rejects_mismatched_dataset_and_training_config(tmp_path):
         train_on_conversations(prepared, resume_from=checkpoint, **options)
 
 
-
 def test_sft_supports_bf16_and_activation_checkpointing(tmp_path):
     source = tmp_path / "source"
     _write_chat_corpus(source)

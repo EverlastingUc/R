@@ -221,7 +221,6 @@ def test_forward_with_cache_rejects_incompatible_cache():
         model.forward_with_cache(torch.ones((1, 7), dtype=torch.long), cache)
 
 
-
 def test_gradient_checkpointing_matches_normal_parameter_gradients():
     torch.manual_seed(211)
     config = TransformerConfig(
@@ -252,4 +251,3 @@ def test_gradient_checkpointing_matches_normal_parameter_gradients():
         assert torch.allclose(
             baseline_parameter.grad, checkpointed_parameter.grad, atol=1e-6
         )
-

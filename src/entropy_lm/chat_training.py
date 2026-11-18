@@ -347,7 +347,9 @@ def train_on_conversations(
             if saved_scaler_state is not None:
                 scaler.load_state_dict(saved_scaler_state)
             elif scaler.is_enabled():
-                raise ValueError("SFT resume checkpoint is missing gradient scaler state")
+                raise ValueError(
+                    "SFT resume checkpoint is missing gradient scaler state"
+                )
             restored_history = saved_training.get("history")
             if not isinstance(restored_history, list):
                 raise TypeError("SFT resume checkpoint history must be a list")
@@ -537,9 +539,7 @@ def main() -> None:
     parser.add_argument("--minimum-learning-rate-ratio", type=float, default=0.1)
     parser.add_argument("--early-stopping-patience", type=int)
     parser.add_argument("--device", default="cpu")
-    parser.add_argument(
-        "--precision", choices=("fp32", "bf16", "fp16"), default="fp32"
-    )
+    parser.add_argument("--precision", choices=("fp32", "bf16", "fp16"), default="fp32")
     parser.add_argument(
         "--gradient-checkpointing",
         action="store_true",
