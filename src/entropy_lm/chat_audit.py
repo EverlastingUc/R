@@ -173,7 +173,9 @@ def audit_chat_dataset(
     if conversations_without_final_assistant:
         warnings.append("Some conversations do not end with an assistant response.")
     if consecutive_same_role:
-        warnings.append("Some conversations contain consecutive messages with the same role.")
+        warnings.append(
+            "Some conversations contain consecutive messages with the same role."
+        )
 
     report: dict[str, Any] = {
         "format_version": 1,
