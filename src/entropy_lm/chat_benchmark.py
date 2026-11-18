@@ -120,9 +120,7 @@ def _score_case(
 ) -> dict[str, Any]:
     normalized_prediction = _normalize_text(prediction)
     normalized_reference = _normalize_text(reference)
-    required = {
-        term: _contains_phrase(prediction, term) for term in must_include
-    }
+    required = {term: _contains_phrase(prediction, term) for term in must_include}
     forbidden = [
         term for term in must_not_include if _contains_phrase(prediction, term)
     ]

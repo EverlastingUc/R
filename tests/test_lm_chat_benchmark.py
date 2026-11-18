@@ -155,7 +155,6 @@ def test_end_to_end_chat_benchmark_is_reproducible_and_preserves_rng(tmp_path):
     assert json.loads(output_path.read_text(encoding="utf-8")) == first
 
 
-
 def test_phrase_checks_match_word_sequences_not_substrings():
     assert _contains_phrase("The assistant is helpful.", "assistant is")
     assert _contains_phrase("Paris, France", "paris france")
