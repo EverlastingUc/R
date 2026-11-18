@@ -172,6 +172,58 @@ def build_chat_input_ids(
     )
 
 
+def _stream_until_stop(
+    chunks: Iterator[str], stop_sequences: list[str] | None
+) -> Iterator[str]:
+    """Yield streamed text while withholding and removing configured stop text."""
+    if stop_sequences is None:
+        yield from chunks
+        return
+    if not isinstance(stop_sequences, list) or any(
+        not isinstance(sequence, str) or not sequence for sequence in stop_sequences
+    ):
+        raise ValueError("stop_sequences must be a list of non-empty strings")
+    markers = list(dict.fromkeys(stop_sequences))
+    if not markers:
+        yield from chunks
+        return
+
+    iterator = iter(chunks)
+    buffer = ""
+    maximum_length = max(map(len, markers))
+    try:
+        for chunk in iterator:
+            buffer += chunk
+            matches = [
+                (buffer.find(marker), -len(marker))
+                for marker in markers
+                if buffer.find(marker) >= 0
+            ]
+            if matches:
+                stop_at = min(matches)[0]
+                if stop_at:
+                    yield buffer[:stop_at]
+                return
+
+            retained = 0
+            for width in range(min(len(buffer), maximum_length - 1), 0, -1):
+                suffix = buffer[-width:]
+                if any(marker.startswith(suffix) for marker in markers):
+                    retained = width
+                    break
+            flush_length = len(buffer) - retained
+            if flush_length:
+                yield buffer[:flush_length]
+                buffer = buffer[flush_length:]
+
+        if buffer:
+            yield buffer
+    finally:
+        close = getattr(iterator, "close", None)
+        if callable(close):
+            close()
+
+
 def stream_chat_response(
     model: CausalLanguageModel,
     messages: list[dict[str, str]],
@@ -181,6 +233,7 @@ def stream_chat_response(
     top_k: int | None = 40,
     top_p: float = 1.0,
     repetition_penalty: float = 1.0,
+    stop_sequences: list[str] | None = None,
 ) -> Iterator[str]:
     """Yield decoded assistant text as the model generates each token."""
     tokenizer = getattr(model, "tokenizer", None)
@@ -201,7 +254,8 @@ def stream_chat_response(
         repetition_penalty=repetition_penalty,
         eos_token_id=tokenizer.eos_id,
     )
-    yield from _decode_token_stream(tokenizer, generated_tokens)
+    decoded_chunks = _decode_token_stream(tokenizer, generated_tokens)
+    yield from _stream_until_stop(decoded_chunks, stop_sequences)
 
 
 def generate_chat_response(
@@ -213,6 +267,7 @@ def generate_chat_response(
     top_k: int | None = 40,
     top_p: float = 1.0,
     repetition_penalty: float = 1.0,
+    stop_sequences: list[str] | None = None,
 ) -> str:
     """Generate a complete response using the same UTF-8-safe streaming path."""
     return "".join(
@@ -224,6 +279,7 @@ def generate_chat_response(
             top_k=top_k,
             top_p=top_p,
             repetition_penalty=repetition_penalty,
+            stop_sequences=stop_sequences,
         )
     ).strip()
 
@@ -242,6 +298,12 @@ def main() -> None:
     parser.add_argument("--top-k", type=int, default=40)
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--repetition-penalty", type=float, default=1.0)
+    parser.add_argument(
+        "--stop",
+        dest="stop_sequences",
+        action="append",
+        help="stop generation when this exact text is produced; may be repeated",
+    )
     parser.add_argument("--device", default="cpu")
     parser.add_argument(
         "--no-stream",
@@ -276,6 +338,7 @@ def main() -> None:
                 top_k=args.top_k,
                 top_p=args.top_p,
                 repetition_penalty=args.repetition_penalty,
+                stop_sequences=args.stop_sequences,
             )
             print(f"Entropy: {response}")
         else:
@@ -289,6 +352,7 @@ def main() -> None:
                 top_k=args.top_k,
                 top_p=args.top_p,
                 repetition_penalty=args.repetition_penalty,
+                stop_sequences=args.stop_sequences,
             ):
                 sys.stdout.write(chunk)
                 sys.stdout.flush()

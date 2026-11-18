@@ -214,3 +214,15 @@ def test_chat_benchmark_rejects_invalid_sampling_controls(tmp_path, overrides):
             tmp_path / "missing.jsonl",
             **overrides,
         )
+
+
+
+def test_chat_benchmark_records_stop_sequences(tmp_path, monkeypatch):
+    # Invalid file paths are intentionally avoided by exercising validation on
+    # the stop values before any checkpoint or dataset I/O.
+    with pytest.raises(ValueError, match="non-empty strings"):
+        evaluate_chat_benchmark(
+            tmp_path / "missing.pt",
+            tmp_path / "missing.jsonl",
+            stop_sequences=[""],
+        )

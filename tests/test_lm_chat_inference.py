@@ -214,3 +214,42 @@ def test_context_packing_rejects_context_too_small_for_chat_prefix():
             [{"role": "user", "content": "Hello."}],
             context_length=4,
         )
+
+
+
+def test_stream_until_stop_handles_markers_split_across_chunks_and_closes():
+    from entropy_lm.chat_inference import _stream_until_stop
+
+    closed = []
+
+    def source():
+        try:
+            yield "The answer is EN"
+            yield "D_MARKERhidden content"
+        finally:
+            closed.append(True)
+
+    chunks = list(_stream_until_stop(source(), ["END_MARKER"]))
+    assert "".join(chunks) == "The answer is "
+    assert closed == [True]
+
+
+def test_stream_until_stop_preserves_partial_prefix_when_no_stop_completes():
+    from entropy_lm.chat_inference import _stream_until_stop
+
+    chunks = list(_stream_until_stop(iter(["visible", " END", " partial"]), ["END_MARKER"]))
+    assert "".join(chunks) == "visible END partial"
+
+
+def test_stream_until_stop_chooses_earliest_marker_and_validates_values():
+    from entropy_lm.chat_inference import _stream_until_stop
+
+    chunks = list(
+        _stream_until_stop(iter(["before STOP then END"]), ["END", "STOP"])
+    )
+    assert "".join(chunks) == "before "
+
+    with pytest.raises(ValueError, match="non-empty strings"):
+        list(_stream_until_stop(iter(["text"]), [""]))
+    with pytest.raises(ValueError, match="non-empty strings"):
+        list(_stream_until_stop(iter(["text"]), ["ok", 3]))

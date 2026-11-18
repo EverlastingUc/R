@@ -144,6 +144,7 @@ def evaluate_chat_benchmark(
     top_k: int | None = 1,
     top_p: float = 1.0,
     repetition_penalty: float = 1.0,
+    stop_sequences: list[str] | None = None,
     seed: int = 0,
     device: str = "cpu",
 ) -> dict[str, Any]:
@@ -179,6 +180,11 @@ def evaluate_chat_benchmark(
         or repetition_penalty <= 0.0
     ):
         raise ValueError("repetition_penalty must be positive and finite")
+    if stop_sequences is not None and (
+        not isinstance(stop_sequences, list)
+        or any(not isinstance(sequence, str) or not sequence for sequence in stop_sequences)
+    ):
+        raise ValueError("stop_sequences must be a list of non-empty strings")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed must be an integer")
 
@@ -214,6 +220,7 @@ def evaluate_chat_benchmark(
                 top_k=top_k,
                 top_p=top_p,
                 repetition_penalty=repetition_penalty,
+                stop_sequences=stop_sequences,
             )
             scores = _score_case(
                 prediction,
@@ -263,6 +270,7 @@ def evaluate_chat_benchmark(
                 "top_k": top_k,
                 "top_p": top_p,
                 "repetition_penalty": repetition_penalty,
+                "stop_sequences": stop_sequences or [],
                 "seed": seed,
                 "device": device,
             },
@@ -297,6 +305,12 @@ def main() -> None:
     parser.add_argument("--top-k", type=int, default=1)
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--repetition-penalty", type=float, default=1.0)
+    parser.add_argument(
+        "--stop",
+        dest="stop_sequences",
+        action="append",
+        help="stop generation when this exact text is produced; may be repeated",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
@@ -309,6 +323,7 @@ def main() -> None:
         top_k=args.top_k,
         top_p=args.top_p,
         repetition_penalty=args.repetition_penalty,
+        stop_sequences=args.stop_sequences,
         seed=args.seed,
         device=args.device,
     )
