@@ -69,8 +69,10 @@ def _read_preference_pairs(
             raise ValueError(f"prompt leaves no response capacity at line {line_number}")
         chosen_ids = tokenizer.encode(chosen) + [tokenizer.eos_id]
         rejected_ids = tokenizer.encode(rejected) + [tokenizer.eos_id]
-        chosen_ids = chosen_ids[:available]
-        rejected_ids = rejected_ids[:available]
+        if len(chosen_ids) > available:
+            chosen_ids = chosen_ids[: available - 1] + [tokenizer.eos_id]
+        if len(rejected_ids) > available:
+            rejected_ids = rejected_ids[: available - 1] + [tokenizer.eos_id]
         if not chosen_ids or not rejected_ids:
             raise ValueError(f"response tokenization is empty at line {line_number}")
         pairs.append(
@@ -224,7 +226,8 @@ def train_with_preferences(
     best_state: dict[str, Tensor] | None = None
 
     for epoch in range(1, epochs + 1):
-        policy.train()
+        # Disable dropout for a stable policy/reference likelihood comparison.
+        policy.eval()
         order = torch.randperm(len(train_pairs), generator=generator).tolist()
         total_loss = 0.0
         seen = 0
