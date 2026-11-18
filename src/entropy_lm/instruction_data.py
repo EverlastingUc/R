@@ -29,8 +29,16 @@ def normalize_instruction_record(record: Any, *, location: str) -> list[dict[str
         if "prompt" not in record or "completion" not in record:
             raise ValueError(f"{location}: prompt and completion must appear together")
         messages = [
-            {"role": "user", "content": _nonempty_string(record["prompt"], "prompt", location)},
-            {"role": "assistant", "content": _nonempty_string(record["completion"], "completion", location)},
+            {
+                "role": "user",
+                "content": _nonempty_string(record["prompt"], "prompt", location),
+            },
+            {
+                "role": "assistant",
+                "content": _nonempty_string(
+                    record["completion"], "completion", location
+                ),
+            },
         ]
     elif "instruction" in record or "output" in record:
         if "instruction" not in record or "output" not in record:
@@ -39,10 +47,15 @@ def normalize_instruction_record(record: Any, *, location: str) -> list[dict[str
         user_input = record.get("input", "")
         if not isinstance(user_input, str):
             raise TypeError(f"{location}: input must be a string when supplied")
-        user_content = instruction if not user_input.strip() else f"{instruction}\n\n{user_input}"
+        user_content = (
+            instruction if not user_input.strip() else f"{instruction}\n\n{user_input}"
+        )
         messages = [
             {"role": "user", "content": user_content},
-            {"role": "assistant", "content": _nonempty_string(record["output"], "output", location)},
+            {
+                "role": "assistant",
+                "content": _nonempty_string(record["output"], "output", location),
+            },
         ]
     else:
         raise ValueError(
@@ -53,11 +66,16 @@ def normalize_instruction_record(record: Any, *, location: str) -> list[dict[str
     system = record.get("system")
     if system is not None:
         normalized.append(
-            {"role": "system", "content": _nonempty_string(system, "system", location)}
+            {
+                "role": "system",
+                "content": _nonempty_string(system, "system", location),
+            }
         )
     validated = _validate_messages(messages, source=location, line_number=1)
     if system is not None and validated[0]["role"] == "system":
-        raise ValueError(f"{location}: system is supplied both separately and in messages")
+        raise ValueError(
+            f"{location}: system is supplied both separately and in messages"
+        )
     normalized.extend(validated)
     return normalized
 

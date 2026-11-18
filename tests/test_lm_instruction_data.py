@@ -40,9 +40,10 @@ def test_accepts_existing_multiturn_messages():
         {"role": "user", "content": "Second?"},
         {"role": "assistant", "content": "Second answer."},
     ]
-    assert normalize_instruction_record(
-        {"messages": messages}, location="sample:1"
-    ) == messages
+    assert (
+        normalize_instruction_record({"messages": messages}, location="sample:1")
+        == messages
+    )
 
 
 @pytest.mark.parametrize(
@@ -64,7 +65,9 @@ def test_dataset_normalization_is_atomic_and_counts_blank_lines(tmp_path):
     source = tmp_path / "source.jsonl"
     output = tmp_path / "nested" / "chat.jsonl"
     source.write_text(
-        json.dumps({"instruction": "Explain", "input": "gravity", "output": "Attraction."})
+        json.dumps(
+            {"instruction": "Explain", "input": "gravity", "output": "Attraction."}
+        )
         + "\n\n"
         + json.dumps({"prompt": "Hi", "completion": "Hello"})
         + "\n",
@@ -73,7 +76,9 @@ def test_dataset_normalization_is_atomic_and_counts_blank_lines(tmp_path):
 
     report = normalize_instruction_dataset(source, output)
 
-    records = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+    records = [
+        json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()
+    ]
     assert report["records_written"] == 2
     assert report["blank_lines_skipped"] == 1
     assert records[0]["messages"][0]["content"] == "Explain\n\ngravity"
