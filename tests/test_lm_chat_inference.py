@@ -6,8 +6,8 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from entropy_lm.chat_data import prepare_chat_dataset
 from entropy_lm.bpe_tokenizer import BPETokenizer
+from entropy_lm.chat_data import prepare_chat_dataset
 from entropy_lm.chat_inference import (
     format_chat_prompt,
     generate_chat_response,
@@ -117,6 +117,14 @@ def test_model_generate_stream_reconstructs_the_complete_sequence():
     )
     actual = torch.cat([input_ids, *generated], dim=1)
     assert torch.equal(actual, expected)
+    assert model.training is True
+
+    interrupted = model.generate_stream(
+        input_ids, max_new_tokens=5, top_k=1, eos_token_id=257
+    )
+    next(interrupted)
+    assert model.training is False
+    interrupted.close()
     assert model.training is True
 
 
