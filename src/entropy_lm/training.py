@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import hashlib
 import json
 import math
@@ -17,6 +18,31 @@ from torch import Tensor
 from entropy_lm.bpe_tokenizer import BPETokenizer
 from entropy_lm.model import CausalLanguageModel, TransformerConfig
 from entropy_lm.tokenizer import ByteTokenizer
+
+
+def _validate_training_precision(device: torch.device, precision: str) -> None:
+    """Validate supported autocast modes for the selected training device."""
+    if precision not in ("fp32", "bf16", "fp16"):
+        raise ValueError("precision must be 'fp32', 'bf16', or 'fp16'")
+    if precision == "fp16" and device.type != "cuda":
+        raise ValueError("fp16 training requires a CUDA device")
+    if precision == "fp16" and not torch.cuda.is_available():
+        raise ValueError("fp16 training requires CUDA support")
+    if precision == "bf16" and device.type not in ("cpu", "cuda"):
+        raise ValueError("bf16 training supports CPU or CUDA devices only")
+
+
+def _autocast_context(device: torch.device, precision: str):
+    """Return the autocast context used consistently by training and evaluation."""
+    if precision == "fp32":
+        return nullcontext()
+    dtype = torch.bfloat16 if precision == "bf16" else torch.float16
+    return torch.autocast(device_type=device.type, dtype=dtype)
+
+
+def _create_grad_scaler(precision: str) -> torch.amp.GradScaler:
+    """Enable dynamic loss scaling only for CUDA FP16 training."""
+    return torch.amp.GradScaler("cuda", enabled=precision == "fp16")
 
 
 def _sample_batch(
@@ -46,6 +72,7 @@ def _estimate_loss(
     batches: int,
     generator: torch.Generator,
     device: torch.device,
+    precision: str = "fp32",
 ) -> float:
     model.eval()
     losses = []
@@ -57,7 +84,8 @@ def _estimate_loss(
             generator=generator,
             device=device,
         )
-        _, loss = model(inputs, targets)
+        with _autocast_context(device, precision):
+            _, loss = model(inputs, targets)
         if loss is None:
             raise RuntimeError("model did not return a loss for supplied targets")
         losses.append(float(loss.item()))
@@ -97,6 +125,7 @@ def _save_checkpoint(
     history: list[dict[str, float | int]],
     training: dict[str, Any],
     rng_state: dict[str, Any],
+    scaler_state: dict[str, Any],
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint: dict[str, Any] = {
@@ -108,6 +137,7 @@ def _save_checkpoint(
         "training": training | {"history": history},
         "tokenizer": _tokenizer_metadata(tokenizer),
         "rng_state": rng_state,
+        "scaler_state": scaler_state,
     }
     temporary_path = path.with_name(path.name + ".tmp")
     torch.save(checkpoint, temporary_path)
@@ -216,6 +246,8 @@ def train_language_model(
     early_stopping_patience: int | None = None,
     resume_from: str | Path | None = None,
     max_steps_per_run: int | None = None,
+    precision: Literal["fp32", "bf16", "fp16"] = "fp32",
+    gradient_checkpointing: bool = False,
 ) -> list[dict[str, float | int]]:
     """Train a causal LM with warmup, cosine decay and best-validation saving.
 
@@ -244,8 +276,10 @@ def train_language_model(
         checkpoint_path = resume_from
     if not math.isfinite(learning_rate) or learning_rate <= 0.0:
         raise ValueError("learning_rate must be positive and finite")
-    if not isinstance(seed, int):
+    if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed must be an integer")
+    if not isinstance(gradient_checkpointing, bool):
+        raise TypeError("gradient_checkpointing must be a boolean")
 
     if isinstance(text, Path) and text.is_dir():
         train_tokens, validation_tokens, tokenizer, corpus_sha256 = (
@@ -284,8 +318,12 @@ def train_language_model(
 
     torch.manual_seed(seed)
     target_device = torch.device(device)
+    _validate_training_precision(target_device, precision)
     model = CausalLanguageModel(architecture).to(target_device)
+    if gradient_checkpointing:
+        model.gradient_checkpointing_enable()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    scaler = _create_grad_scaler(precision)
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer,
         lr_lambda=lambda step: _learning_rate_scale(
@@ -317,6 +355,8 @@ def train_language_model(
         "validation_fraction": validation_fraction,
         "seed": seed,
         "early_stopping_patience": early_stopping_patience,
+        "precision": precision,
+        "gradient_checkpointing": gradient_checkpointing,
         "corpus_sha256": corpus_sha256,
     }
     checkpoint_training: dict[str, Any] = {
@@ -352,7 +392,16 @@ def train_language_model(
             raise ValueError("resume checkpoint training metadata is malformed")
         if saved_training.get("corpus_sha256") != corpus_sha256:
             raise ValueError("resume checkpoint corpus does not match")
-        if saved_training.get("run_config") != run_config:
+        saved_run_config = saved_training.get("run_config")
+        legacy_run_config = dict(run_config)
+        legacy_run_config.pop("precision")
+        legacy_run_config.pop("gradient_checkpointing")
+        compatible_legacy = (
+            precision == "fp32"
+            and not gradient_checkpointing
+            and saved_run_config == legacy_run_config
+        )
+        if saved_run_config != run_config and not compatible_legacy:
             raise ValueError("resume checkpoint training configuration does not match")
         required_fields = ("model_state", "optimizer_state", "scheduler_state")
         if any(not isinstance(saved.get(key), dict) for key in required_fields):
@@ -364,6 +413,11 @@ def train_language_model(
             model.load_state_dict(saved["model_state"], strict=True)
             optimizer.load_state_dict(saved["optimizer_state"])
             scheduler.load_state_dict(saved["scheduler_state"])
+            saved_scaler_state = saved.get("scaler_state")
+            if saved_scaler_state is not None:
+                scaler.load_state_dict(saved_scaler_state)
+            elif scaler.is_enabled():
+                raise ValueError("resume checkpoint is missing gradient scaler state")
             history = saved_training["history"]
             completed_steps = int(saved_training["completed_steps"])
             best_value = saved_training.get("best_validation_loss")
@@ -425,13 +479,16 @@ def train_language_model(
                 generator=train_generator,
                 device=target_device,
             )
-            _, loss = model(inputs, targets)
+            with _autocast_context(target_device, precision):
+                _, loss = model(inputs, targets)
             if loss is None or not torch.isfinite(loss):
                 raise FloatingPointError("training loss became non-finite")
             accumulated_loss += float(loss.item())
-            (loss / gradient_accumulation_steps).backward()
+            scaler.scale(loss / gradient_accumulation_steps).backward()
+        scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
+        scaler.step(optimizer)
+        scaler.update()
         scheduler.step()
         completed_steps = step
 
@@ -444,6 +501,7 @@ def train_language_model(
                 batches=eval_batches,
                 generator=training_eval_generator,
                 device=target_device,
+                precision=precision,
             )
             validation_loss = _estimate_loss(
                 model,
@@ -453,6 +511,7 @@ def train_language_model(
                 batches=eval_batches,
                 generator=validation_generator,
                 device=target_device,
+                precision=precision,
             )
             current_learning_rate = float(optimizer.param_groups[0]["lr"])
             history.append(
@@ -489,6 +548,7 @@ def train_language_model(
                     history=history,
                     training=checkpoint_training,
                     rng_state=capture_rng_state(),
+                    scaler_state=scaler.state_dict(),
                 )
             if (
                 early_stopping_patience is not None
@@ -514,6 +574,7 @@ def train_language_model(
             history=history,
             training=checkpoint_training,
             rng_state=capture_rng_state(),
+            scaler_state=scaler.state_dict(),
         )
     return history
 
@@ -540,6 +601,14 @@ def main() -> None:
     parser.add_argument("--tokenizer", choices=("byte", "bpe"), default="bpe")
     parser.add_argument("--bpe-vocab-size", type=int, default=1000)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--precision", choices=("fp32", "bf16", "fp16"), default="fp32"
+    )
+    parser.add_argument(
+        "--gradient-checkpointing",
+        action="store_true",
+        help="recompute Transformer activations to reduce training memory",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--resume",
@@ -593,6 +662,8 @@ def main() -> None:
         early_stopping_patience=args.early_stopping_patience,
         resume_from=args.checkpoint if args.resume else None,
         max_steps_per_run=args.max_steps_this_run,
+        precision=args.precision,
+        gradient_checkpointing=args.gradient_checkpointing,
     )
     print(json.dumps(history, indent=2))
 
