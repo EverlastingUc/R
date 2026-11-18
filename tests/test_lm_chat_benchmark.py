@@ -152,3 +152,41 @@ def test_end_to_end_chat_benchmark_is_reproducible_and_preserves_rng(tmp_path):
     assert 0.0 <= first["metrics"]["mean_token_f1"] <= 1.0
     assert output_path.is_file()
     assert json.loads(output_path.read_text(encoding="utf-8")) == first
+
+
+
+def test_phrase_checks_match_word_sequences_not_substrings():
+    from entropy_lm.chat_benchmark import _contains_phrase
+
+    assert _contains_phrase("The assistant is helpful.", "assistant is")
+    assert _contains_phrase("Paris, France", "paris france") is False
+    assert _contains_phrase("Paris, France", "Paris")
+    assert _contains_phrase("the answer", "he") is False
+    assert _contains_phrase("a café is here", "café")
+    assert _contains_phrase("the answer", "the answer")
+    assert _contains_phrase("the answer", "answer the") is False
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"max_new_tokens": True},
+        {"max_new_tokens": 0},
+        {"max_new_tokens": 2.5},
+        {"temperature": True},
+        {"temperature": 0.0},
+        {"temperature": float("nan")},
+        {"top_k": True},
+        {"top_k": 0},
+        {"top_k": 1.5},
+    ],
+)
+def test_chat_benchmark_rejects_invalid_generation_parameters(tmp_path, overrides):
+    from entropy_lm.chat_benchmark import evaluate_chat_benchmark
+
+    with pytest.raises(ValueError):
+        evaluate_chat_benchmark(
+            tmp_path / "missing.pt",
+            tmp_path / "missing.jsonl",
+            **overrides,
+        )

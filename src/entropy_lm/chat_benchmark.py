@@ -23,6 +23,19 @@ def _normalize_text(value: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
 
 
+def _contains_phrase(text: str, phrase: str) -> bool:
+    """Match a phrase as consecutive Unicode word tokens, not a substring."""
+    text_tokens = re.findall(r"\\w+", _normalize_text(text))
+    phrase_tokens = re.findall(r"\\w+", _normalize_text(phrase))
+    if not phrase_tokens or len(phrase_tokens) > len(text_tokens):
+        return False
+    width = len(phrase_tokens)
+    return any(
+        text_tokens[index : index + width] == phrase_tokens
+        for index in range(len(text_tokens) - width + 1)
+    )
+
+
 def _token_f1(prediction: str, reference: str) -> float:
     """Compute whitespace/punctuation-insensitive multiset token F1."""
     prediction_tokens = Counter(re.findall(r"\w+", _normalize_text(prediction)))
@@ -108,12 +121,10 @@ def _score_case(
     normalized_prediction = _normalize_text(prediction)
     normalized_reference = _normalize_text(reference)
     required = {
-        term: _normalize_text(term) in normalized_prediction for term in must_include
+        term: _contains_phrase(prediction, term) for term in must_include
     }
     forbidden = [
-        term
-        for term in must_not_include
-        if _normalize_text(term) in normalized_prediction
+        term for term in must_not_include if _contains_phrase(prediction, term)
     ]
     return {
         "normalized_exact_match": normalized_prediction == normalized_reference,
@@ -135,12 +146,23 @@ def evaluate_chat_benchmark(
     device: str = "cpu",
 ) -> dict[str, Any]:
     """Generate and score responses on an independent prompt/reference JSONL set."""
-    if max_new_tokens < 1:
-        raise ValueError("max_new_tokens must be positive")
-    if not math.isfinite(temperature) or temperature <= 0.0:
+    if (
+        isinstance(max_new_tokens, bool)
+        or not isinstance(max_new_tokens, int)
+        or max_new_tokens < 1
+    ):
+        raise ValueError("max_new_tokens must be a positive integer")
+    if (
+        isinstance(temperature, bool)
+        or not isinstance(temperature, (int, float))
+        or not math.isfinite(temperature)
+        or temperature <= 0.0
+    ):
         raise ValueError("temperature must be positive and finite")
-    if top_k is not None and top_k < 1:
-        raise ValueError("top_k must be positive when supplied")
+    if top_k is not None and (
+        isinstance(top_k, bool) or not isinstance(top_k, int) or top_k < 1
+    ):
+        raise ValueError("top_k must be a positive integer when supplied")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise TypeError("seed must be an integer")
 
