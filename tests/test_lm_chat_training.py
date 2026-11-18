@@ -153,6 +153,7 @@ def test_sft_training_resumes_exactly_after_a_non_evaluation_step(tmp_path):
         "eval_interval": 2,
         "warmup_steps": 1,
         "seed": 41,
+        "gradient_checkpointing": True,
     }
     uninterrupted_path = tmp_path / "uninterrupted.pt"
     partial_path = tmp_path / "partial.pt"
@@ -173,6 +174,7 @@ def test_sft_training_resumes_exactly_after_a_non_evaluation_step(tmp_path):
         "model_state",
         "optimizer_state",
         "scheduler_state",
+        "scaler_state",
         "rng_state",
     }
     assert set(partial["resume_state"]["rng_state"]) == {
@@ -238,3 +240,58 @@ def test_sft_resume_rejects_mismatched_dataset_and_training_config(tmp_path):
     manifest.write_text(manifest.read_text(encoding="utf-8") + " ", encoding="utf-8")
     with pytest.raises(ValueError, match="corpus does not match"):
         train_on_conversations(prepared, resume_from=checkpoint, **options)
+
+
+
+def test_sft_supports_bf16_and_activation_checkpointing(tmp_path):
+    source = tmp_path / "source"
+    _write_chat_corpus(source)
+    prepared = tmp_path / "prepared"
+    prepare_chat_dataset(
+        source,
+        prepared,
+        validation_fraction=0.2,
+        test_fraction=0.2,
+        tokenizer_type="byte",
+        seed=53,
+    )
+    checkpoint = tmp_path / "bf16-assistant.pt"
+    history = train_on_conversations(
+        prepared,
+        config=TransformerConfig(
+            vocab_size=258,
+            context_length=16,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+        ),
+        steps=1,
+        batch_size=2,
+        eval_interval=1,
+        precision="bf16",
+        gradient_checkpointing=True,
+        checkpoint_path=checkpoint,
+    )
+    assert len(history) == 1
+    assert torch.isfinite(torch.tensor(history[0]["validation_loss"]))
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    assert payload["training"]["run_config"]["precision"] == "bf16"
+    assert payload["training"]["run_config"]["gradient_checkpointing"] is True
+    assert payload["resume_state"]["scaler_state"] == {}
+
+
+def test_sft_fp16_training_rejects_cpu_device(tmp_path):
+    source = tmp_path / "source"
+    _write_chat_corpus(source)
+    prepared = tmp_path / "prepared"
+    prepare_chat_dataset(
+        source,
+        prepared,
+        validation_fraction=0.2,
+        test_fraction=0.2,
+        tokenizer_type="byte",
+        seed=59,
+    )
+    with pytest.raises(ValueError, match="requires a CUDA device"):
+        train_on_conversations(prepared, precision="fp16")

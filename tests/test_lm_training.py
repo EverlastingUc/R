@@ -143,6 +143,7 @@ def test_training_can_resume_deterministically(tmp_path) -> None:
         "learning_rate": 1e-3,
         "warmup_steps": 1,
         "gradient_accumulation_steps": 2,
+        "gradient_checkpointing": True,
     }
     uninterrupted_path = tmp_path / "uninterrupted.pt"
     partial_path = tmp_path / "partial.pt"
@@ -267,3 +268,40 @@ def test_prepared_bpe_corpus_trains_and_evaluates_on_held_out_test(tmp_path) -> 
     assert torch.isfinite(torch.tensor(result["cross_entropy_nats_per_token"]))
     assert result["perplexity"] > 1.0
     assert len(result["checkpoint_sha256"]) == 64
+
+
+
+def test_training_supports_bf16_and_activation_checkpointing(tmp_path):
+    corpus = "A small mixed precision language modeling corpus. " * 80
+    checkpoint = tmp_path / "bf16-model.pt"
+    history = train_language_model(
+        corpus,
+        config=TransformerConfig(
+            vocab_size=258,
+            context_length=8,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+        ),
+        steps=1,
+        batch_size=2,
+        eval_interval=1,
+        eval_batches=1,
+        tokenizer_type="byte",
+        precision="bf16",
+        gradient_checkpointing=True,
+        checkpoint_path=checkpoint,
+    )
+    assert len(history) == 1
+    assert torch.isfinite(torch.tensor(history[0]["validation_loss"]))
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    assert payload["training"]["run_config"]["precision"] == "bf16"
+    assert payload["training"]["run_config"]["gradient_checkpointing"] is True
+    assert payload["scaler_state"] == {}
+
+
+def test_fp16_training_rejects_cpu_device():
+    corpus = "A corpus that is long enough to pass preprocessing. " * 80
+    with pytest.raises(ValueError, match="requires a CUDA device"):
+        train_language_model(corpus, precision="fp16")

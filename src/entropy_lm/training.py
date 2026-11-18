@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
 import hashlib
 import json
 import math
 import os
+from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Literal
@@ -487,9 +487,11 @@ def train_language_model(
             scaler.scale(loss / gradient_accumulation_steps).backward()
         scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        previous_scale = scaler.get_scale()
         scaler.step(optimizer)
         scaler.update()
-        scheduler.step()
+        if not scaler.is_enabled() or scaler.get_scale() >= previous_scale:
+            scheduler.step()
         completed_steps = step
 
         if step % eval_interval == 0 or step == steps:

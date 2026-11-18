@@ -473,9 +473,11 @@ def train_on_conversations(
             scaler.scale(loss_sum / supervised_target_count).backward()
         scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        previous_scale = scaler.get_scale()
         scaler.step(optimizer)
         scaler.update()
-        scheduler.step()
+        if not scaler.is_enabled() or scaler.get_scale() >= previous_scale:
+            scheduler.step()
         completed_steps = step
 
         if step % eval_interval == 0 or step == steps:
