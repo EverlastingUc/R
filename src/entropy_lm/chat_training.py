@@ -158,6 +158,20 @@ def _load_chat_windows(
     )
 
 
+def _chat_sampling_weights(targets: Tensor, strategy: str) -> Tensor:
+    """Build deterministic sampling weights from assistant-target density."""
+    if strategy not in {"uniform-window", "assistant-token"}:
+        raise ValueError("sampling_strategy must be uniform-window or assistant-token")
+    if targets.ndim != 2 or targets.shape[0] == 0:
+        raise ValueError("training targets must be a non-empty rank-2 tensor")
+    target_counts = (targets != IGNORE_INDEX).sum(dim=1).to(dtype=torch.float64)
+    if torch.any(target_counts <= 0):
+        raise ValueError("every training window must contain assistant targets")
+    if strategy == "uniform-window":
+        return torch.ones_like(target_counts)
+    return target_counts
+
+
 def _load_chat_dataset(
     directory: Path, *, context_length: int
 ) -> tuple[Tensor, Tensor, Tensor, Tensor, ByteTokenizer | BPETokenizer, str]:
@@ -232,6 +246,7 @@ def train_on_conversations(
     max_steps_per_run: int | None = None,
     precision: Literal["fp32", "bf16", "fp16"] = "fp32",
     gradient_checkpointing: bool = False,
+    sampling_strategy: Literal["uniform-window", "assistant-token"] = "uniform-window",
 ) -> list[dict[str, float | int]]:
     """Fine-tune on assistant targets, with exact CPU pause/resume support."""
     if steps < 1 or batch_size < 1 or eval_interval < 1:
@@ -255,6 +270,10 @@ def train_on_conversations(
         raise ValueError("max_steps_per_run must be positive when supplied")
     if not isinstance(gradient_checkpointing, bool):
         raise TypeError("gradient_checkpointing must be a boolean")
+    if sampling_strategy not in {"uniform-window", "assistant-token"}:
+        raise ValueError(
+            "sampling_strategy must be uniform-window or assistant-token"
+        )
     if resume_from is not None and checkpoint_path == "entropy-chat-model.pt":
         checkpoint_path = resume_from
 
@@ -288,6 +307,7 @@ def train_on_conversations(
         "device": device,
         "precision": precision,
         "gradient_checkpointing": gradient_checkpointing,
+        "sampling_strategy": sampling_strategy,
         "corpus_sha256": corpus_sha256,
     }
 
@@ -307,6 +327,7 @@ def train_on_conversations(
         ),
     )
     generator = torch.Generator(device="cpu").manual_seed(seed + 1)
+    sampling_weights = _chat_sampling_weights(train_targets, sampling_strategy)
     history: list[dict[str, float | int]] = []
     best_validation_loss = math.inf
     best_model_state: dict[str, Tensor] | None = None
@@ -459,9 +480,10 @@ def train_on_conversations(
     for step in range(start_step + 1, end_step + 1):
         model.train()
         optimizer.zero_grad(set_to_none=True)
-        sample_indices = torch.randint(
-            len(train_inputs),
-            (batch_size * gradient_accumulation_steps,),
+        sample_indices = torch.multinomial(
+            sampling_weights,
+            batch_size * gradient_accumulation_steps,
+            replacement=True,
             generator=generator,
         )
         sampled_targets = train_targets[sample_indices]
@@ -564,6 +586,12 @@ def main() -> None:
         action="store_true",
         help="recompute Transformer activations to reduce training memory",
     )
+    parser.add_argument(
+        "--sampling-strategy",
+        choices=("uniform-window", "assistant-token"),
+        default="uniform-window",
+        help="sample windows uniformly or proportional to assistant target count",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--resume",
@@ -606,6 +634,7 @@ def main() -> None:
         max_steps_per_run=args.max_steps_this_run,
         precision=args.precision,
         gradient_checkpointing=args.gradient_checkpointing,
+        sampling_strategy=args.sampling_strategy,
     )
     print(json.dumps(history, indent=2))
 

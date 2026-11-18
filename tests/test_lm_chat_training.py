@@ -375,3 +375,29 @@ def test_sft_supports_rope_sliding_attention(tmp_path):
     )
     loaded = load_model_checkpoint(checkpoint)
     assert loaded.config.attention_window == 4
+
+
+
+def test_assistant_token_sampling_weights_reflect_supervised_target_counts():
+    from entropy_lm.chat_training import _chat_sampling_weights
+
+    targets = torch.tensor(
+        [[-100, 3, 4, -100], [-100, 5, -100, -100], [-100, 6, 7, 8]]
+    )
+    uniform = _chat_sampling_weights(targets, "uniform-window")
+    weighted = _chat_sampling_weights(targets, "assistant-token")
+    assert torch.equal(uniform, torch.ones(3, dtype=torch.float64))
+    assert torch.equal(weighted, torch.tensor([2.0, 1.0, 3.0], dtype=torch.float64))
+
+
+def test_chat_sampling_rejects_empty_or_invalid_windows():
+    from entropy_lm.chat_training import _chat_sampling_weights
+
+    with pytest.raises(ValueError, match="non-empty rank-2"):
+        _chat_sampling_weights(torch.empty((0, 4), dtype=torch.long), "uniform-window")
+    with pytest.raises(ValueError, match="every training window"):
+        _chat_sampling_weights(
+            torch.tensor([[-100, -100], [-100, 4]]), "assistant-token"
+        )
+    with pytest.raises(ValueError, match="sampling_strategy"):
+        _chat_sampling_weights(torch.tensor([[-100, 4]]), "unknown")
