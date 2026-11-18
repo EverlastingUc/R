@@ -271,9 +271,7 @@ def train_on_conversations(
     if not isinstance(gradient_checkpointing, bool):
         raise TypeError("gradient_checkpointing must be a boolean")
     if sampling_strategy not in {"uniform-window", "assistant-token"}:
-        raise ValueError(
-            "sampling_strategy must be uniform-window or assistant-token"
-        )
+        raise ValueError("sampling_strategy must be uniform-window or assistant-token")
     if resume_from is not None and checkpoint_path == "entropy-chat-model.pt":
         checkpoint_path = resume_from
 

@@ -377,13 +377,10 @@ def test_sft_supports_rope_sliding_attention(tmp_path):
     assert loaded.config.attention_window == 4
 
 
-
 def test_assistant_token_sampling_weights_reflect_supervised_target_counts():
     from entropy_lm.chat_training import _chat_sampling_weights
 
-    targets = torch.tensor(
-        [[-100, 3, 4, -100], [-100, 5, -100, -100], [-100, 6, 7, 8]]
-    )
+    targets = torch.tensor([[-100, 3, 4, -100], [-100, 5, -100, -100], [-100, 6, 7, 8]])
     uniform = _chat_sampling_weights(targets, "uniform-window")
     weighted = _chat_sampling_weights(targets, "assistant-token")
     assert torch.equal(uniform, torch.ones(3, dtype=torch.float64))
