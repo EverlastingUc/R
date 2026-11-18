@@ -45,6 +45,8 @@ def _token_f1(prediction: str, reference: str) -> float:
     if not prediction_tokens or not reference_tokens:
         return 0.0
     overlap = sum((prediction_tokens & reference_tokens).values())
+    if overlap == 0:
+        return 0.0
     precision = overlap / sum(prediction_tokens.values())
     recall = overlap / sum(reference_tokens.values())
     return 2.0 * precision * recall / (precision + recall)

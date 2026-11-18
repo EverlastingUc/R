@@ -10,6 +10,7 @@ from entropy_lm.chat_benchmark import (
     _contains_phrase,
     _read_benchmark_dataset,
     _score_case,
+    _token_f1,
     evaluate_chat_benchmark,
 )
 from entropy_lm.chat_data import prepare_chat_dataset
@@ -188,3 +189,8 @@ def test_chat_benchmark_rejects_invalid_generation_parameters(tmp_path, override
             tmp_path / "missing.jsonl",
             **overrides,
         )
+
+
+
+def test_token_f1_returns_zero_when_nonempty_answers_do_not_overlap():
+    assert _token_f1("cat", "dog") == 0.0
