@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
-from typing import Any, Literal
+from typing import Literal
 
 import torch
 from torch import Tensor, nn
