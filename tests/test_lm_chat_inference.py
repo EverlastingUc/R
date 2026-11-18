@@ -74,7 +74,7 @@ def test_chat_response_uses_sft_checkpoint_and_eos_stopping(tmp_path):
         prepared,
         config=TransformerConfig(
             vocab_size=258,
-            context_length=24,
+            context_length=32,
             embedding_dim=8,
             num_heads=2,
             num_layers=1,
@@ -174,9 +174,9 @@ def test_context_packing_preserves_system_and_latest_user_turn():
     token_ids = build_chat_input_ids(tokenizer, messages, context_length=96)
     decoded = tokenizer.decode(token_ids)
     assert len(token_ids) <= 96
-    assert decoded.startswith("<|system|>\\nFollow")
-    assert "<|user|>\\n" in decoded
-    assert decoded.endswith("<|assistant|>\\n")
+    assert decoded.startswith("<|system|>\nFollow")
+    assert "<|user|>\n" in decoded
+    assert decoded.endswith("<|assistant|>\n")
     assert "ending marker." in decoded
     assert "Old question" not in decoded
     assert "Old answer" not in decoded
@@ -195,7 +195,7 @@ def test_context_packing_keeps_recent_complete_history_when_it_fits():
     assert "Be precise." in decoded
     assert "Earlier question." in decoded
     assert "Earlier answer." in decoded
-    assert decoded.endswith("<|user|>\\nCurrent question?\\n<|assistant|>\\n")
+    assert decoded.endswith("<|user|>\nCurrent question?\n<|assistant|>\n")
 
 
 def test_context_packing_rejects_context_too_small_for_chat_prefix():
