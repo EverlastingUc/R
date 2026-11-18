@@ -218,6 +218,7 @@ def _encode_conversation(
     input_ids, labels, _ = _encode_conversation_with_turns(messages, tokenizer)
     return input_ids, labels
 
+
 def prepare_chat_dataset(
     input_path: str | Path,
     output_dir: str | Path,
