@@ -5,6 +5,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from entropy_lm.model import CausalLanguageModel, TransformerConfig
+from torch.nn import functional as F
 
 
 def test_transformer_forward_loss_and_generation() -> None:
@@ -142,3 +143,77 @@ def test_generation_rejects_invalid_eos_token():
             max_new_tokens=1,
             eos_token_id=16,
         )
+
+
+
+def test_forward_with_cache_matches_full_sequence_logits():
+    torch.manual_seed(101)
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=32,
+            context_length=12,
+            embedding_dim=16,
+            num_heads=4,
+            num_layers=2,
+            dropout=0.0,
+        )
+    ).eval()
+    tokens = torch.randint(0, 32, (2, 7), dtype=torch.long)
+
+    full_logits, _ = model(tokens)
+    cached_prefill_logits, cache = model.forward_with_cache(tokens[:, :-1])
+    cached_last_logits, _ = model.forward_with_cache(tokens[:, -1:], cache)
+
+    assert torch.allclose(cached_prefill_logits, full_logits[:, :-1], atol=1e-5)
+    assert torch.allclose(cached_last_logits[:, -1], full_logits[:, -1], atol=1e-5)
+
+
+def test_generation_with_cache_matches_recomputed_sliding_window():
+    torch.manual_seed(103)
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=24,
+            context_length=6,
+            embedding_dim=12,
+            num_heads=3,
+            num_layers=2,
+            dropout=0.0,
+        )
+    ).eval()
+    prompt = torch.tensor([[1, 2, 3, 4, 5, 6]], dtype=torch.long)
+
+    torch.manual_seed(107)
+    cached = model.generate(prompt, max_new_tokens=5, top_k=1)
+
+    torch.manual_seed(107)
+    expected = prompt.clone()
+    for _ in range(5):
+        context = expected[:, -model.config.context_length :]
+        logits, _ = model(context)
+        probabilities = F.softmax(logits[:, -1, :], dim=-1)
+        next_token = torch.multinomial(
+            torch.topk(probabilities, 1, dim=-1).indices,
+            num_samples=1,
+        )
+        expected = torch.cat((expected, next_token), dim=1)
+
+    assert torch.equal(cached, expected)
+
+
+def test_forward_with_cache_rejects_incompatible_cache():
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=16,
+            context_length=8,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+        )
+    ).eval()
+    tokens = torch.tensor([[1, 2]], dtype=torch.long)
+    _, cache = model.forward_with_cache(tokens)
+    with pytest.raises(ValueError, match="one entry per Transformer layer"):
+        model.forward_with_cache(tokens, cache * 2)
+    with pytest.raises(ValueError, match="exceeds configured context_length"):
+        model.forward_with_cache(torch.ones((1, 7), dtype=torch.long), cache)

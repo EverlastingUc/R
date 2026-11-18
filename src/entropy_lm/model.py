@@ -154,6 +154,136 @@ class CausalLanguageModel(nn.Module):
         return logits, loss
 
     @torch.no_grad()
+    def forward_with_cache(
+        self,
+        input_ids: Tensor,
+        past_key_values: tuple[tuple[Tensor, Tensor], ...] | None = None,
+    ) -> tuple[Tensor, tuple[tuple[Tensor, Tensor], ...]]:
+        """Run an inference chunk and return reusable per-layer key/value states.
+
+        Cached keys and values have shape (batch, heads, sequence, head_dim).
+        This method is intended for evaluation/generation and does not compute
+        a training loss or retain autograd graphs.
+        """
+        if input_ids.ndim != 2 or input_ids.dtype != torch.long:
+            raise TypeError("input_ids must be a rank-2 torch.long tensor")
+        batch_size, sequence_length = input_ids.shape
+        if batch_size < 1 or sequence_length < 1:
+            raise ValueError("input_ids must be non-empty")
+        if torch.any(input_ids < 0) or torch.any(input_ids >= self.config.vocab_size):
+            raise ValueError("input_ids contain an out-of-vocabulary token")
+
+        layers = self.blocks.layers
+        if past_key_values is not None and len(past_key_values) != len(layers):
+            raise ValueError("past_key_values must contain one entry per Transformer layer")
+
+        past_length = 0
+        if past_key_values is not None:
+            lengths: set[int] = set()
+            expected_shape = (batch_size, self.config.num_heads)
+            for key, value in past_key_values:
+                if key.ndim != 4 or value.shape != key.shape:
+                    raise ValueError("cached key/value tensors have invalid shapes")
+                if key.shape[:2] != expected_shape:
+                    raise ValueError("cached key/value batch or head dimensions mismatch")
+                if key.device != input_ids.device or value.device != input_ids.device:
+                    raise ValueError("cached key/value tensors must match input device")
+                if key.dtype != self.token_embedding.weight.dtype:
+                    raise ValueError("cached key/value tensor dtype mismatch")
+                lengths.add(key.shape[-2])
+            if len(lengths) != 1:
+                raise ValueError("all cached layers must have the same sequence length")
+            past_length = lengths.pop()
+
+        if past_length + sequence_length > self.config.context_length:
+            raise ValueError("cached sequence exceeds configured context_length")
+
+        positions = torch.arange(
+            past_length,
+            past_length + sequence_length,
+            device=input_ids.device,
+        )
+        hidden = self.token_embedding(input_ids) + self.position_embedding(positions)
+        updated_cache: list[tuple[Tensor, Tensor]] = []
+
+        for layer_index, layer in enumerate(layers):
+            normalized = layer.norm1(hidden) if layer.norm_first else hidden
+            attention = layer.self_attn
+            if attention.in_proj_weight is None:
+                raise RuntimeError("cached attention requires a packed QKV projection")
+            projected = F.linear(
+                normalized, attention.in_proj_weight, attention.in_proj_bias
+            )
+            query, key, value = projected.chunk(3, dim=-1)
+            head_dim = self.config.embedding_dim // self.config.num_heads
+            query = query.view(
+                batch_size, sequence_length, self.config.num_heads, head_dim
+            ).transpose(1, 2)
+            key = key.view(
+                batch_size, sequence_length, self.config.num_heads, head_dim
+            ).transpose(1, 2)
+            value = value.view(
+                batch_size, sequence_length, self.config.num_heads, head_dim
+            ).transpose(1, 2)
+
+            if past_key_values is not None:
+                previous_key, previous_value = past_key_values[layer_index]
+                key = torch.cat((previous_key, key), dim=-2)
+                value = torch.cat((previous_value, value), dim=-2)
+            updated_cache.append((key, value))
+
+            dropout_probability = attention.dropout if self.training else 0.0
+            if past_length == 0:
+                attended = F.scaled_dot_product_attention(
+                    query,
+                    key,
+                    value,
+                    dropout_p=dropout_probability,
+                    is_causal=True,
+                )
+            else:
+                query_positions = torch.arange(
+                    past_length,
+                    past_length + sequence_length,
+                    device=input_ids.device,
+                )
+                key_positions = torch.arange(
+                    past_length + sequence_length, device=input_ids.device
+                )
+                causal_mask = key_positions.unsqueeze(0) <= query_positions.unsqueeze(1)
+                attended = F.scaled_dot_product_attention(
+                    query,
+                    key,
+                    value,
+                    attn_mask=causal_mask,
+                    dropout_p=dropout_probability,
+                    is_causal=False,
+                )
+
+            attended = attended.transpose(1, 2).contiguous().view(
+                batch_size, sequence_length, self.config.embedding_dim
+            )
+            attended = attention.out_proj(attended)
+            if layer.norm_first:
+                hidden = hidden + layer.dropout1(attended)
+                feedforward_input = layer.norm2(hidden)
+                feedforward = layer.linear2(
+                    layer.dropout(
+                        layer.activation(layer.linear1(feedforward_input))
+                    )
+                )
+                hidden = hidden + layer.dropout2(feedforward)
+            else:
+                hidden = layer.norm1(hidden + layer.dropout1(attended))
+                feedforward = layer.linear2(
+                    layer.dropout(layer.activation(layer.linear1(hidden)))
+                )
+                hidden = layer.norm2(hidden + layer.dropout2(feedforward))
+
+        logits = self.output(self.final_norm(hidden))
+        return logits, tuple(updated_cache)
+
+    @torch.no_grad()
     def generate(
         self,
         input_ids: Tensor,
@@ -208,9 +338,9 @@ class CausalLanguageModel(nn.Module):
             input_ids.shape[0], dtype=torch.bool, device=input_ids.device
         )
         try:
+            context = result[:, -self.config.context_length :]
+            logits, past_key_values = self.forward_with_cache(context)
             for _ in range(max_new_tokens):
-                context = result[:, -self.config.context_length :]
-                logits, _ = self(context)
                 next_logits = logits[:, -1, :] / temperature
                 if top_k is not None:
                     threshold = torch.topk(next_logits, top_k, dim=-1).values[:, -1]
@@ -230,5 +360,14 @@ class CausalLanguageModel(nn.Module):
                 yield next_token
                 if eos_token_id is not None and bool(torch.all(finished)):
                     break
+
+                cached_length = past_key_values[0][0].shape[-2]
+                if cached_length < self.config.context_length:
+                    logits, past_key_values = self.forward_with_cache(
+                        next_token, past_key_values
+                    )
+                else:
+                    context = result[:, -self.config.context_length :]
+                    logits, past_key_values = self.forward_with_cache(context)
         finally:
             self.train(was_training)
