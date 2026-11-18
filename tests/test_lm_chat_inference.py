@@ -97,7 +97,6 @@ def test_chat_response_uses_sft_checkpoint_and_eos_stopping(tmp_path):
     assert isinstance(response, str)
 
 
-
 def test_model_generate_stream_reconstructs_the_complete_sequence():
     model = CausalLanguageModel(
         TransformerConfig(
@@ -111,14 +110,10 @@ def test_model_generate_stream_reconstructs_the_complete_sequence():
     )
     input_ids = torch.tensor([[256, 65, 66]], dtype=torch.long)
     torch.manual_seed(101)
-    expected = model.generate(
-        input_ids, max_new_tokens=5, top_k=1, eos_token_id=257
-    )
+    expected = model.generate(input_ids, max_new_tokens=5, top_k=1, eos_token_id=257)
     torch.manual_seed(101)
     generated = list(
-        model.generate_stream(
-            input_ids, max_new_tokens=5, top_k=1, eos_token_id=257
-        )
+        model.generate_stream(input_ids, max_new_tokens=5, top_k=1, eos_token_id=257)
     )
     actual = torch.cat([input_ids, *generated], dim=1)
     assert torch.equal(actual, expected)

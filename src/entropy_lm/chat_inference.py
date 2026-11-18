@@ -70,18 +70,23 @@ def _decode_token_stream(
 ) -> Iterator[str]:
     """Incrementally decode token bytes without splitting Unicode characters."""
     decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-    for token in token_stream:
-        if token.numel() != 1:
-            raise ValueError("chat streaming expects one generated sequence")
-        token_id = int(token.item())
-        if token_id == tokenizer.eos_id:
-            break
-        chunk = decoder.decode(_token_to_bytes(tokenizer, token_id), final=False)
-        if chunk:
-            yield chunk
-    remainder = decoder.decode(b"", final=True)
-    if remainder:
-        yield remainder
+    try:
+        for token in token_stream:
+            if token.numel() != 1:
+                raise ValueError("chat streaming expects one generated sequence")
+            token_id = int(token.item())
+            if token_id == tokenizer.eos_id:
+                break
+            chunk = decoder.decode(_token_to_bytes(tokenizer, token_id), final=False)
+            if chunk:
+                yield chunk
+        remainder = decoder.decode(b"", final=True)
+        if remainder:
+            yield remainder
+    finally:
+        close = getattr(token_stream, "close", None)
+        if callable(close):
+            close()
 
 
 def stream_chat_response(
