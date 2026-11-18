@@ -9,6 +9,7 @@ torch = pytest.importorskip("torch")
 from entropy_lm.bpe_tokenizer import BPETokenizer
 from entropy_lm.chat_data import prepare_chat_dataset
 from entropy_lm.chat_inference import (
+    build_chat_input_ids,
     format_chat_prompt,
     generate_chat_response,
     stream_chat_response,
@@ -156,3 +157,52 @@ def test_streaming_chat_decodes_utf8_safely(tokenizer, tmp_path):
     chunks = list(stream_chat_response(model, messages, top_k=1))
     assert "".join(chunks) == expected_text
     assert generate_chat_response(model, messages, top_k=1) == expected_text
+
+
+
+def test_context_packing_preserves_system_and_latest_user_turn():
+    tokenizer = ByteTokenizer()
+    messages = [
+        {"role": "system", "content": "Follow the important system rule."},
+        {"role": "user", "content": "Old question that should be removed."},
+        {"role": "assistant", "content": "Old answer that should be removed."},
+        {
+            "role": "user",
+            "content": "A very long current question with a distinctive ending marker.",
+        },
+    ]
+    token_ids = build_chat_input_ids(tokenizer, messages, context_length=96)
+    decoded = tokenizer.decode(token_ids)
+    assert len(token_ids) <= 96
+    assert decoded.startswith("<|system|>\\nFollow")
+    assert "<|user|>\\n" in decoded
+    assert decoded.endswith("<|assistant|>\\n")
+    assert "ending marker." in decoded
+    assert "Old question" not in decoded
+    assert "Old answer" not in decoded
+
+
+def test_context_packing_keeps_recent_complete_history_when_it_fits():
+    tokenizer = ByteTokenizer()
+    messages = [
+        {"role": "system", "content": "Be precise."},
+        {"role": "user", "content": "Earlier question."},
+        {"role": "assistant", "content": "Earlier answer."},
+        {"role": "user", "content": "Current question?"},
+    ]
+    token_ids = build_chat_input_ids(tokenizer, messages, context_length=128)
+    decoded = tokenizer.decode(token_ids)
+    assert "Be precise." in decoded
+    assert "Earlier question." in decoded
+    assert "Earlier answer." in decoded
+    assert decoded.endswith("<|user|>\\nCurrent question?\\n<|assistant|>\\n")
+
+
+def test_context_packing_rejects_context_too_small_for_chat_prefix():
+    tokenizer = ByteTokenizer()
+    with pytest.raises(ValueError, match="too small"):
+        build_chat_input_ids(
+            tokenizer,
+            [{"role": "user", "content": "Hello."}],
+            context_length=4,
+        )

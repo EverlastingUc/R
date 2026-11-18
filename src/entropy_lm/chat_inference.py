@@ -89,6 +89,89 @@ def _decode_token_stream(
             close()
 
 
+def build_chat_input_ids(
+    tokenizer: ByteTokenizer | BPETokenizer,
+    messages: list[dict[str, str]],
+    *,
+    context_length: int,
+) -> list[int]:
+    """Pack chat context while prioritizing the system and latest user message.
+
+    The first system message is retained with priority. The latest user message
+    is always retained; if it is too long, its header and trailing content are
+    kept. Older messages are included only when each complete message fits.
+    """
+    format_chat_prompt(messages)
+    if isinstance(context_length, bool) or not isinstance(context_length, int):
+        raise TypeError("context_length must be an integer")
+    if context_length < 1:
+        raise ValueError("context_length must be positive")
+
+    assistant_prefix = tokenizer.encode("<|assistant|>\n")
+    available = context_length - 1 - len(assistant_prefix)
+    latest_user = messages[-1]
+    user_header = tokenizer.encode("<|user|>\n")
+    user_body = tokenizer.encode(latest_user["content"] + "\n")
+    minimum_user_length = len(user_header) + min(1, len(user_body))
+    if available < minimum_user_length:
+        raise ValueError(
+            "context_length is too small for a user message and assistant prefix"
+        )
+
+    has_system = messages[0]["role"] == "system"
+    system_header: list[int] = []
+    system_body: list[int] = []
+    if has_system:
+        system_header = tokenizer.encode("<|system|>\n")
+        system_body = tokenizer.encode(messages[0]["content"] + "\n")
+    full_system = system_header + system_body
+    full_user = user_header + user_body
+
+    if len(full_system) + len(full_user) <= available:
+        system_tokens = full_system
+        user_tokens = full_user
+    else:
+        system_capacity = min(
+            len(full_system),
+            max(len(system_header), available // 4),
+            available - minimum_user_length,
+        )
+        if system_capacity >= len(system_header):
+            system_tokens = system_header + system_body[
+                : system_capacity - len(system_header)
+            ]
+        else:
+            system_tokens = []
+
+        user_capacity = available - len(system_tokens)
+        body_capacity = user_capacity - len(user_header)
+        if body_capacity < 1:
+            raise ValueError("context_length leaves no room for latest user content")
+        user_tokens = user_header + user_body[-body_capacity:]
+
+    remaining = available - len(system_tokens) - len(user_tokens)
+    history_blocks: list[list[int]] = []
+    history_start = 1 if has_system else 0
+    for message in reversed(messages[history_start:-1]):
+        block = tokenizer.encode(f"<|{message['role']}|>\n")
+        block.extend(tokenizer.encode(message["content"] + "\n"))
+        if len(block) > remaining:
+            break
+        history_blocks.append(block)
+        remaining -= len(block)
+
+    history_tokens = [
+        token_id for block in reversed(history_blocks) for token_id in block
+    ]
+    return (
+        [tokenizer.bos_id]
+        + system_tokens
+        + history_tokens
+        + user_tokens
+        + assistant_prefix
+    )
+
+
 def stream_chat_response(
     model: CausalLanguageModel,
     messages: list[dict[str, str]],
@@ -101,9 +184,9 @@ def stream_chat_response(
     tokenizer = getattr(model, "tokenizer", None)
     if not isinstance(tokenizer, (ByteTokenizer, BPETokenizer)):
         raise TypeError("model must be loaded with a supported tokenizer")
-    prompt = format_chat_prompt(messages)
-    prompt_ids = tokenizer.encode(prompt, add_bos=True)
-    prompt_ids = prompt_ids[-model.config.context_length :]
+    prompt_ids = build_chat_input_ids(
+        tokenizer, messages, context_length=model.config.context_length
+    )
     input_ids = torch.tensor(
         [prompt_ids], dtype=torch.long, device=next(model.parameters()).device
     )
