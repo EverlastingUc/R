@@ -257,7 +257,6 @@ def test_gradient_checkpointing_matches_normal_parameter_gradients():
         )
 
 
-
 def test_generation_filters_apply_top_p_and_repetition_penalty():
     logits = torch.tensor([[4.0, 3.0, 2.0, 1.0, -2.0]])
     history = torch.tensor([[1, 4]], dtype=torch.long)
