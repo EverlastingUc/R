@@ -80,6 +80,14 @@ def test_chat_preparation_splits_deduplicates_and_masks_prompt_tokens(tmp_path):
     assert len(record["input_ids"]) == len(record["labels"])
     assert IGNORE_INDEX in record["labels"]
     assert any(label != IGNORE_INDEX for label in record["labels"])
+    assert len(record["assistant_turns"]) == 2
+    assert [turn["turn_index"] for turn in record["assistant_turns"]] == [0, 1]
+    for turn in record["assistant_turns"]:
+        assert 0 <= turn["target_start"] < turn["target_end"] <= len(record["labels"])
+        assert all(
+            label != IGNORE_INDEX
+            for label in record["labels"][turn["target_start"] : turn["target_end"]]
+        )
 
 
 def test_chat_bpe_metadata_matches_manifest_and_is_loadable(tmp_path):
