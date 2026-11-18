@@ -29,6 +29,7 @@ def _write_chat_corpus(path):
             json.dumps(record) + "\n", encoding="utf-8"
         )
 
+
 def test_sft_loader_builds_supervised_windows_only(tmp_path):
     source = tmp_path / "source"
     _write_chat_corpus(source)
@@ -53,6 +54,7 @@ def test_sft_loader_builds_supervised_windows_only(tmp_path):
         | ((train_targets >= 0) & (train_targets < tokenizer.vocab_size))
     )
     assert len(corpus_hash) == 64
+
 
 def test_sft_training_saves_inference_compatible_checkpoint(tmp_path):
     source = tmp_path / "source"
@@ -94,6 +96,7 @@ def test_sft_training_saves_inference_compatible_checkpoint(tmp_path):
     model = load_model_checkpoint(checkpoint)
     assert model.config.vocab_size == 258
 
+
 def test_sft_loader_rejects_label_id_mismatch(tmp_path):
     source = tmp_path / "source"
     _write_chat_corpus(source)
@@ -120,6 +123,7 @@ def test_sft_loader_rejects_label_id_mismatch(tmp_path):
     )
     with pytest.raises(ValueError, match="do not align"):
         _load_chat_dataset(prepared, context_length=16)
+
 
 def test_sft_training_resumes_exactly_after_a_non_evaluation_step(tmp_path):
     source = tmp_path / "source"
@@ -196,6 +200,7 @@ def test_sft_training_resumes_exactly_after_a_non_evaluation_step(tmp_path):
     for name, expected in uninterrupted["resume_state"]["model_state"].items():
         assert torch.equal(resumed["resume_state"]["model_state"][name], expected)
 
+
 def test_sft_resume_rejects_mismatched_dataset_and_training_config(tmp_path):
     source = tmp_path / "source"
     _write_chat_corpus(source)
@@ -236,6 +241,7 @@ def test_sft_resume_rejects_mismatched_dataset_and_training_config(tmp_path):
     with pytest.raises(ValueError, match="corpus does not match"):
         train_on_conversations(prepared, resume_from=checkpoint, **options)
 
+
 def test_sft_supports_bf16_and_activation_checkpointing(tmp_path):
     source = tmp_path / "source"
     _write_chat_corpus(source)
@@ -273,6 +279,7 @@ def test_sft_supports_bf16_and_activation_checkpointing(tmp_path):
     assert payload["training"]["run_config"]["gradient_checkpointing"] is True
     assert payload["resume_state"]["scaler_state"] == {}
 
+
 def test_sft_fp16_training_rejects_cpu_device(tmp_path):
     source = tmp_path / "source"
     _write_chat_corpus(source)
@@ -287,6 +294,7 @@ def test_sft_fp16_training_rejects_cpu_device(tmp_path):
     )
     with pytest.raises(ValueError, match="requires a CUDA device"):
         train_on_conversations(prepared, precision="fp16")
+
 
 def test_sft_supports_rope_position_encoding_and_checkpoint_loading(tmp_path):
     from entropy_lm.inference import load_model_checkpoint
@@ -323,6 +331,7 @@ def test_sft_supports_rope_position_encoding_and_checkpoint_loading(tmp_path):
     model = load_model_checkpoint(checkpoint)
     assert model.config.position_encoding == "rope"
     assert model.position_embedding is None
+
 
 def test_sft_supports_rope_sliding_attention(tmp_path):
     from entropy_lm.inference import load_model_checkpoint

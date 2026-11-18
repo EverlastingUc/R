@@ -10,6 +10,7 @@ from entropy_lm.corpus import prepare_corpus
 from entropy_lm.model import TransformerConfig
 from entropy_lm.training import train_language_model
 
+
 def test_training_loop_learns_and_saves_checkpoint(tmp_path) -> None:
     corpus = "the quick brown fox jumps over the lazy dog. " * 80
     checkpoint = tmp_path / "tiny-model.pt"
@@ -43,6 +44,7 @@ def test_training_loop_learns_and_saves_checkpoint(tmp_path) -> None:
     assert payload["training"]["best_validation_loss"] is not None
     assert "scheduler_state" in payload
 
+
 def test_training_rejects_too_short_corpus() -> None:
     with pytest.raises(ValueError, match="exceed context_length"):
         train_language_model(
@@ -56,12 +58,14 @@ def test_training_rejects_too_short_corpus() -> None:
             steps=1,
         )
 
+
 def test_training_rejects_invalid_accumulation_and_warmup() -> None:
     corpus = "training and validation text. " * 20
     with pytest.raises(ValueError, match="gradient_accumulation_steps"):
         train_language_model(corpus, gradient_accumulation_steps=0)
     with pytest.raises(ValueError, match="warmup_steps"):
         train_language_model(corpus, steps=2, warmup_steps=2)
+
 
 def test_training_consumes_prepared_document_splits(tmp_path) -> None:
     source = tmp_path / "source"
@@ -101,6 +105,7 @@ def test_training_consumes_prepared_document_splits(tmp_path) -> None:
     payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
     assert payload["training"]["corpus_sha256"]
 
+
 def test_prepared_dataset_rejects_stale_tokenizer_fingerprint(tmp_path) -> None:
     source = tmp_path / "source"
     source.mkdir()
@@ -117,6 +122,7 @@ def test_prepared_dataset_rejects_stale_tokenizer_fingerprint(tmp_path) -> None:
     train_file.write_text(json.dumps(record) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="invalid metadata"):
         train_language_model(prepared, steps=1)
+
 
 def test_training_can_resume_deterministically(tmp_path) -> None:
     corpus = "A tiny corpus for deterministic checkpoint continuation. " * 100
@@ -177,6 +183,7 @@ def test_training_can_resume_deterministically(tmp_path) -> None:
     for name, expected in uninterrupted["model_state"].items():
         assert torch.equal(resumed["model_state"][name], expected)
 
+
 def test_resume_rejects_a_different_corpus_or_training_configuration(tmp_path) -> None:
     checkpoint = tmp_path / "resume.pt"
     config = TransformerConfig(
@@ -210,6 +217,7 @@ def test_resume_rejects_a_different_corpus_or_training_configuration(tmp_path) -
             resume_from=checkpoint,
             **(options | {"learning_rate": 1e-4}),
         )
+
 
 def test_prepared_bpe_corpus_trains_and_evaluates_on_held_out_test(tmp_path) -> None:
     from entropy_lm.evaluation import evaluate_prepared_test_set
@@ -261,6 +269,7 @@ def test_prepared_bpe_corpus_trains_and_evaluates_on_held_out_test(tmp_path) -> 
     assert result["perplexity"] > 1.0
     assert len(result["checkpoint_sha256"]) == 64
 
+
 def test_training_supports_bf16_and_activation_checkpointing(tmp_path):
     corpus = "A small mixed precision language modeling corpus. " * 80
     checkpoint = tmp_path / "bf16-model.pt"
@@ -290,10 +299,12 @@ def test_training_supports_bf16_and_activation_checkpointing(tmp_path):
     assert payload["training"]["run_config"]["gradient_checkpointing"] is True
     assert payload["scaler_state"] == {}
 
+
 def test_fp16_training_rejects_cpu_device():
     corpus = "A corpus that is long enough to pass preprocessing. " * 80
     with pytest.raises(ValueError, match="requires a CUDA device"):
         train_language_model(corpus, precision="fp16")
+
 
 def test_training_supports_rope_and_saves_architecture_metadata(tmp_path):
     from entropy_lm.inference import load_model_checkpoint
@@ -324,6 +335,7 @@ def test_training_supports_rope_and_saves_architecture_metadata(tmp_path):
     assert "position_embedding.weight" not in payload["model_state"]
     model = load_model_checkpoint(checkpoint)
     assert model.config.position_encoding == "rope"
+
 
 def test_resume_accepts_legacy_learned_position_architecture_metadata(tmp_path):
     corpus = "A compact legacy checkpoint training corpus. " * 80
@@ -356,6 +368,7 @@ def test_resume_accepts_legacy_learned_position_architecture_metadata(tmp_path):
     )
     assert len(history) == 2
     assert history[-1]["step"] == 2
+
 
 def test_training_supports_rope_sliding_attention_checkpoint(tmp_path):
     from entropy_lm.inference import load_model_checkpoint
