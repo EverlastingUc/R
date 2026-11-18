@@ -433,3 +433,76 @@ def test_rope_gradient_checkpointing_matches_regular_gradients():
             assert expected.grad is None and actual.grad is None
         else:
             assert torch.allclose(expected.grad, actual.grad, atol=1e-6)
+
+
+
+def test_rope_sliding_attention_matches_reference_mask():
+    torch.manual_seed(401)
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=32,
+            context_length=10,
+            embedding_dim=16,
+            num_heads=4,
+            num_layers=2,
+            dropout=0.0,
+            position_encoding="rope",
+            attention_window=3,
+        )
+    ).eval()
+    tokens = torch.randint(0, 32, (2, 8), dtype=torch.long)
+    actual, _ = model(tokens)
+
+    hidden = model.token_embedding(tokens)
+    positions = torch.arange(tokens.shape[1])
+    for layer in model.blocks.layers:
+        hidden = model._forward_rope_layer(layer, hidden, positions, 3)
+    expected = model.output(model.final_norm(hidden))
+    assert torch.allclose(actual, expected, atol=1e-6)
+
+
+def test_rope_sliding_attention_cached_prefill_and_decode_match_full_forward():
+    torch.manual_seed(409)
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=32,
+            context_length=12,
+            embedding_dim=16,
+            num_heads=4,
+            num_layers=2,
+            dropout=0.0,
+            position_encoding="rope",
+            attention_window=4,
+        )
+    ).eval()
+    tokens = torch.randint(0, 32, (2, 9), dtype=torch.long)
+    full_logits, _ = model(tokens)
+    prefix_logits, cache = model.forward_with_cache(tokens[:, :6])
+    suffix_logits, cache = model.forward_with_cache(tokens[:, 6:8], cache)
+    last_logits, _ = model.forward_with_cache(tokens[:, 8:], cache)
+    assert torch.allclose(prefix_logits, full_logits[:, :6], atol=1e-5)
+    assert torch.allclose(suffix_logits, full_logits[:, 6:8], atol=1e-5)
+    assert torch.allclose(last_logits, full_logits[:, 8:], atol=1e-5)
+
+
+def test_rope_sliding_window_generation_and_validation():
+    model = CausalLanguageModel(
+        TransformerConfig(
+            vocab_size=24,
+            context_length=6,
+            embedding_dim=12,
+            num_heads=3,
+            num_layers=2,
+            dropout=0.0,
+            position_encoding="rope",
+            attention_window=3,
+        )
+    ).eval()
+    prompt = torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+    generated = model.generate(prompt, max_new_tokens=8, top_k=1)
+    assert generated.shape == (1, 12)
+
+    with pytest.raises(ValueError, match="attention_window"):
+        TransformerConfig(attention_window=0)
+    with pytest.raises(ValueError, match="requires RoPE"):
+        TransformerConfig(attention_window=4, position_encoding="learned")

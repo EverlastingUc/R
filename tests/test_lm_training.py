@@ -368,3 +368,31 @@ def test_resume_accepts_legacy_learned_position_architecture_metadata(tmp_path):
     )
     assert len(history) == 2
     assert history[-1]["step"] == 2
+
+
+
+def test_training_supports_rope_sliding_attention_checkpoint(tmp_path):
+    from entropy_lm.inference import load_model_checkpoint
+
+    checkpoint = tmp_path / "rope-window.pt"
+    train_language_model(
+        "Sliding attention training uses a deterministic corpus. " * 80,
+        config=TransformerConfig(
+            vocab_size=258,
+            context_length=8,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+            position_encoding="rope",
+            attention_window=4,
+        ),
+        steps=1,
+        batch_size=2,
+        eval_interval=1,
+        eval_batches=1,
+        tokenizer_type="byte",
+        checkpoint_path=checkpoint,
+    )
+    loaded = load_model_checkpoint(checkpoint)
+    assert loaded.config.attention_window == 4

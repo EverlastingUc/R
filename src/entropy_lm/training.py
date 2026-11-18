@@ -601,6 +601,7 @@ def main() -> None:
         "--position-encoding", choices=("learned", "rope"), default="learned"
     )
     parser.add_argument("--rope-base", type=float, default=10000.0)
+    parser.add_argument("--attention-window", type=int)
     parser.add_argument("--embedding-dim", type=int, default=128)
     parser.add_argument("--heads", type=int, default=4)
     parser.add_argument("--layers", type=int, default=4)
@@ -655,6 +656,7 @@ def main() -> None:
             num_layers=args.layers,
             position_encoding=args.position_encoding,
             rope_base=args.rope_base,
+            attention_window=args.attention_window,
         ),
         steps=args.steps,
         batch_size=args.batch_size,

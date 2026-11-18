@@ -103,6 +103,7 @@ class TransformerConfig:
     dropout: float = 0.1
     position_encoding: Literal["learned", "rope"] = "learned"
     rope_base: float = 10000.0
+    attention_window: int | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -132,6 +133,17 @@ class TransformerConfig:
         head_dim = self.embedding_dim // self.num_heads
         if self.position_encoding == "rope" and head_dim % 2:
             raise ValueError("RoPE requires an even attention head dimension")
+        if self.attention_window is not None:
+            if (
+                isinstance(self.attention_window, bool)
+                or not isinstance(self.attention_window, int)
+                or not 1 <= self.attention_window <= self.context_length
+            ):
+                raise ValueError(
+                    "attention_window must be between one and context_length"
+                )
+            if self.position_encoding != "rope":
+                raise ValueError("sliding attention windows currently require RoPE")
 
 
 def architecture_matches_checkpoint(
@@ -218,7 +230,11 @@ class CausalLanguageModel(nn.Module):
         self.gradient_checkpointing = False
 
     def _forward_rope_layer(
-        self, layer: nn.TransformerEncoderLayer, hidden: Tensor, positions: Tensor
+        self,
+        layer: nn.TransformerEncoderLayer,
+        hidden: Tensor,
+        positions: Tensor,
+        attention_window: int | None = None,
     ) -> Tensor:
         """Run one pre-norm Transformer layer with rotary attention positions."""
         batch_size, sequence_length, _ = hidden.shape
@@ -243,13 +259,32 @@ class CausalLanguageModel(nn.Module):
         query, key = _apply_rotary_position_embedding(
             query, key, positions, base=self.config.rope_base
         )
-        attended = F.scaled_dot_product_attention(
-            query,
-            key,
-            value,
-            dropout_p=attention.dropout if self.training else 0.0,
-            is_causal=True,
-        )
+        if attention_window is None:
+            attended = F.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                dropout_p=attention.dropout if self.training else 0.0,
+                is_causal=True,
+            )
+        else:
+            query_positions = torch.arange(sequence_length, device=hidden.device)
+            key_positions = torch.arange(sequence_length, device=hidden.device)
+            local_causal_mask = (
+                (key_positions.unsqueeze(0) <= query_positions.unsqueeze(1))
+                & (
+                    key_positions.unsqueeze(0)
+                    > query_positions.unsqueeze(1) - attention_window
+                )
+            )
+            attended = F.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=local_causal_mask,
+                dropout_p=attention.dropout if self.training else 0.0,
+                is_causal=False,
+            )
         attended = (
             attended.transpose(1, 2)
             .contiguous()
@@ -314,13 +349,15 @@ class CausalLanguageModel(nn.Module):
                 if self.training and self.gradient_checkpointing:
                     hidden = checkpoint(
                         lambda states, block=layer: self._forward_rope_layer(
-                            block, states, positions
+                            block, states, positions, self.config.attention_window
                         ),
                         hidden,
                         use_reentrant=False,
                     )
                 else:
-                    hidden = self._forward_rope_layer(layer, hidden, positions)
+                    hidden = self._forward_rope_layer(
+                        layer, hidden, positions, self.config.attention_window
+                    )
         elif self.training and self.gradient_checkpointing:
             for layer in self.blocks.layers:
                 hidden = checkpoint(layer, hidden, causal_mask, use_reentrant=False)
@@ -439,7 +476,7 @@ class CausalLanguageModel(nn.Module):
             updated_cache.append((key, value))
 
             dropout_probability = attention.dropout if self.training else 0.0
-            if past_length == 0:
+            if past_length == 0 and self.config.attention_window is None:
                 attended = F.scaled_dot_product_attention(
                     query,
                     key,
@@ -457,6 +494,12 @@ class CausalLanguageModel(nn.Module):
                     past_length + sequence_length, device=input_ids.device
                 )
                 causal_mask = key_positions.unsqueeze(0) <= query_positions.unsqueeze(1)
+                if self.config.attention_window is not None:
+                    causal_mask = causal_mask & (
+                        key_positions.unsqueeze(0)
+                        > query_positions.unsqueeze(1)
+                        - self.config.attention_window
+                    )
                 attended = F.scaled_dot_product_attention(
                     query,
                     key,

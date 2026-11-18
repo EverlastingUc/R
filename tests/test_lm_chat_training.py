@@ -331,3 +331,40 @@ def test_sft_supports_rope_position_encoding_and_checkpoint_loading(tmp_path):
     model = load_model_checkpoint(checkpoint)
     assert model.config.position_encoding == "rope"
     assert model.position_embedding is None
+
+
+
+def test_sft_supports_rope_sliding_attention(tmp_path):
+    from entropy_lm.inference import load_model_checkpoint
+
+    source = tmp_path / "source"
+    _write_chat_corpus(source)
+    prepared = tmp_path / "prepared"
+    prepare_chat_dataset(
+        source,
+        prepared,
+        validation_fraction=0.2,
+        test_fraction=0.2,
+        tokenizer_type="byte",
+        seed=71,
+    )
+    checkpoint = tmp_path / "assistant-window.pt"
+    train_on_conversations(
+        prepared,
+        config=TransformerConfig(
+            vocab_size=258,
+            context_length=16,
+            embedding_dim=8,
+            num_heads=2,
+            num_layers=1,
+            dropout=0.0,
+            position_encoding="rope",
+            attention_window=4,
+        ),
+        steps=1,
+        batch_size=2,
+        eval_interval=1,
+        checkpoint_path=checkpoint,
+    )
+    loaded = load_model_checkpoint(checkpoint)
+    assert loaded.config.attention_window == 4
