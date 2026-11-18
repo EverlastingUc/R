@@ -1,8 +1,11 @@
-"""Conversation-formatted inference and a local terminal chat interface."""
+"""Conversation-formatted streaming inference and a local terminal chat interface."""
 
 from __future__ import annotations
 
 import argparse
+import codecs
+import sys
+from collections.abc import Iterator
 
 import torch
 
@@ -37,16 +40,59 @@ def format_chat_prompt(messages: list[dict[str, str]]) -> str:
     return "".join(formatted)
 
 
-@torch.inference_mode()
-def generate_chat_response(
+def _token_to_bytes(tokenizer: ByteTokenizer | BPETokenizer, token_id: int) -> bytes:
+    """Expand one ordinary tokenizer ID to UTF-8 bytes for incremental decoding."""
+    if token_id in (tokenizer.bos_id, tokenizer.eos_id):
+        return b""
+    if 0 <= token_id <= 255:
+        return bytes((token_id,))
+    if isinstance(tokenizer, BPETokenizer) and 258 <= token_id < tokenizer.bos_id:
+        pending = [token_id]
+        expanded = bytearray()
+        while pending:
+            current = pending.pop()
+            if current < 256:
+                expanded.append(current)
+                continue
+            if current < 258:
+                raise ValueError(f"invalid reserved BPE token ID: {current}")
+            merge_index = current - 258
+            if merge_index >= len(tokenizer.merges):
+                raise ValueError(f"invalid BPE token ID: {current}")
+            left, right = tokenizer.merges[merge_index]
+            pending.extend((right, left))
+        return bytes(expanded)
+    raise ValueError(f"unexpected special or out-of-range token ID: {token_id}")
+
+
+def _decode_token_stream(
+    tokenizer: ByteTokenizer | BPETokenizer, token_stream: Iterator[torch.Tensor]
+) -> Iterator[str]:
+    """Incrementally decode token bytes without splitting Unicode characters."""
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    for token in token_stream:
+        if token.numel() != 1:
+            raise ValueError("chat streaming expects one generated sequence")
+        token_id = int(token.item())
+        if token_id == tokenizer.eos_id:
+            break
+        chunk = decoder.decode(_token_to_bytes(tokenizer, token_id), final=False)
+        if chunk:
+            yield chunk
+    remainder = decoder.decode(b"", final=True)
+    if remainder:
+        yield remainder
+
+
+def stream_chat_response(
     model: CausalLanguageModel,
     messages: list[dict[str, str]],
     *,
     max_new_tokens: int = 128,
     temperature: float = 0.8,
     top_k: int | None = 40,
-) -> str:
-    """Generate one assistant turn from system/user/assistant conversation history."""
+) -> Iterator[str]:
+    """Yield decoded assistant text as the model generates each token."""
     tokenizer = getattr(model, "tokenizer", None)
     if not isinstance(tokenizer, (ByteTokenizer, BPETokenizer)):
         raise TypeError("model must be loaded with a supported tokenizer")
@@ -56,15 +102,34 @@ def generate_chat_response(
     input_ids = torch.tensor(
         [prompt_ids], dtype=torch.long, device=next(model.parameters()).device
     )
-    generated = model.generate(
+    generated_tokens = model.generate_stream(
         input_ids,
         max_new_tokens=max_new_tokens,
         temperature=temperature,
         top_k=top_k,
         eos_token_id=tokenizer.eos_id,
     )
-    new_tokens = generated[0, len(prompt_ids) :].tolist()
-    return tokenizer.decode(new_tokens, errors="replace").strip()
+    yield from _decode_token_stream(tokenizer, generated_tokens)
+
+
+def generate_chat_response(
+    model: CausalLanguageModel,
+    messages: list[dict[str, str]],
+    *,
+    max_new_tokens: int = 128,
+    temperature: float = 0.8,
+    top_k: int | None = 40,
+) -> str:
+    """Generate a complete response using the same UTF-8-safe streaming path."""
+    return "".join(
+        stream_chat_response(
+            model,
+            messages,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_k=top_k,
+        )
+    ).strip()
 
 
 def main() -> None:
@@ -80,6 +145,11 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--top-k", type=int, default=40)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--no-stream",
+        action="store_true",
+        help="wait for the complete response before printing it",
+    )
     args = parser.parse_args()
     model = load_model_checkpoint(args.checkpoint, device=args.device)
     conversation = [{"role": "system", "content": args.system_prompt}]
@@ -99,15 +169,31 @@ def main() -> None:
             print("Conversation reset.")
             continue
         conversation.append({"role": "user", "content": user_text})
-        response = generate_chat_response(
-            model,
-            conversation,
-            max_new_tokens=args.max_new_tokens,
-            temperature=args.temperature,
-            top_k=args.top_k,
-        )
+        if args.no_stream:
+            response = generate_chat_response(
+                model,
+                conversation,
+                max_new_tokens=args.max_new_tokens,
+                temperature=args.temperature,
+                top_k=args.top_k,
+            )
+            print(f"Entropy: {response}")
+        else:
+            print("Entropy: ", end="", flush=True)
+            response_chunks: list[str] = []
+            for chunk in stream_chat_response(
+                model,
+                conversation,
+                max_new_tokens=args.max_new_tokens,
+                temperature=args.temperature,
+                top_k=args.top_k,
+            ):
+                sys.stdout.write(chunk)
+                sys.stdout.flush()
+                response_chunks.append(chunk)
+            print()
+            response = "".join(response_chunks).strip()
         conversation.append({"role": "assistant", "content": response})
-        print(f"Entropy: {response}")
 
 
 if __name__ == "__main__":

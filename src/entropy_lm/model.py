@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import torch
@@ -162,7 +163,29 @@ class CausalLanguageModel(nn.Module):
         top_k: int | None = None,
         eos_token_id: int | None = None,
     ) -> Tensor:
-        """Autoregressively sample tokens and optionally stop at an EOS token."""
+        """Generate a complete sequence, preserving the existing batch API."""
+        result = input_ids
+        for next_token in self.generate_stream(
+            input_ids,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            eos_token_id=eos_token_id,
+        ):
+            result = torch.cat((result, next_token), dim=1)
+        return result
+
+    @torch.no_grad()
+    def generate_stream(
+        self,
+        input_ids: Tensor,
+        *,
+        max_new_tokens: int,
+        temperature: float = 1.0,
+        top_k: int | None = None,
+        eos_token_id: int | None = None,
+    ) -> Iterator[Tensor]:
+        """Yield one newly sampled token tensor (batch, 1) at a time."""
         if max_new_tokens < 0:
             raise ValueError("max_new_tokens must be non-negative")
         if not math.isfinite(temperature) or temperature <= 0.0:
@@ -177,6 +200,7 @@ class CausalLanguageModel(nn.Module):
             raise ValueError("input_ids must be non-empty")
         if torch.any(input_ids < 0) or torch.any(input_ids >= self.config.vocab_size):
             raise ValueError("input_ids contain an out-of-vocabulary token")
+
         was_training = self.training
         self.eval()
         result = input_ids
@@ -203,8 +227,8 @@ class CausalLanguageModel(nn.Module):
                     )
                     finished |= next_token.squeeze(-1).eq(eos_token_id)
                 result = torch.cat((result, next_token), dim=1)
+                yield next_token
                 if eos_token_id is not None and bool(torch.all(finished)):
                     break
         finally:
             self.train(was_training)
-        return result
